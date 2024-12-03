@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.git
+.gitignore
+backendfile
+docker-compose.yml
+README.md
+.env

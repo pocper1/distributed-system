@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  type: LoadBalancer  # 指定類型為 LoadBalancer
+  selector:
+    app: backend
+  ports:
+  - protocol: TCP
+    port: 80  # 外部訪問端口
+    targetPort: 8000  # 容器內部服務的端口

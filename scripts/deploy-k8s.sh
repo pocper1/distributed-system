@@ -1,0 +1,3 @@
+#!/bin/bash
+kubectl apply -f backend-deployment.yaml
+kubectl apply -f backend-service.yaml
