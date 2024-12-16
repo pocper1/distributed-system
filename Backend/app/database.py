@@ -1,40 +1,50 @@
 import os
 from dotenv import load_dotenv
-import psycopg2
-from redis import Redis
+from google.cloud.sql.connector import Connector, IPTypes
+import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from redis import Redis
 
 # Load environment variables from .env file
 load_dotenv()
 
 # PostgreSQL Configuration
-POSTGRES_DB = os.getenv("POSTGRES_DB")
-POSTGRES_USER = os.getenv("POSTGRES_USER")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "your_db")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "your_user")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "your_password")
+INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME", "your_project_id:region:instance_id")
 
 # Redis Configuration
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = os.getenv("REDIS_PORT", 6379)
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
-DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+# Function to create a Cloud SQL connection using Google Cloud SQL Connector
+def getconn():
+    """
+    Create a Cloud SQL connection using Cloud SQL Connector.
+    """
+    connector = Connector()  # Initialize the Cloud SQL Connector
+    conn = connector.connect(
+        INSTANCE_CONNECTION_NAME,  # Cloud SQL connection string
+        driver="pg8000",           # PostgreSQL driver for Cloud SQL
+        user=POSTGRES_USER,
+        password=POSTGRES_PASSWORD,
+        db=POSTGRES_DB,
+        ip_type=IPTypes.PUBLIC  # Use PUBLIC for external access; PRIVATE for VPC
+    )
+    return conn
 
-
-# Create a base class for all ORM models
+# SQLAlchemy Configuration
 Base = declarative_base()
-
-# Create the SQLAlchemy engine
-engine = create_engine(DATABASE_URL)
-
-# Create a configured "Session" class
+engine = sqlalchemy.create_engine("postgresql+pg8000://", creator=getconn)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
-# Dependency function
+# Dependency function for PostgreSQL session
 def get_postgresql_connection():
+    """
+    Yield a database session for FastAPI dependency injection.
+    """
     db = SessionLocal()
     try:
         yield db

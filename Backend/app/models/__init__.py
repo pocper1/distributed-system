@@ -3,6 +3,7 @@ from .team import Team
 from .checkin import Checkin
 from .score import Score
 from .ranking import Ranking
+from .association import user_teams
 
 # Specify what is accessible when using `from app.models import *`
-__all__ = ["User", "Team", "Checkin", "Score", "Ranking"]
+__all__ = ["User", "Team", "Checkin", "Score", "Ranking", "user_teams"]

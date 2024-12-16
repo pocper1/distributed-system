@@ -19,8 +19,10 @@ class CreateTeamRequest(BaseModel):
 # User check-in request
 class UserCheckinRequest(BaseModel):
     user_id: int
+    team_id: int
+    content: str
 
 # Update score request
 class UpdateScoreRequest(BaseModel):
-    user_id: int
-    value: int
+    team_id: int
+    value: float
