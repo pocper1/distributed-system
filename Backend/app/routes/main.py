@@ -6,7 +6,7 @@ from datetime import datetime
 from database import get_postgresql_connection
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
+from fastapi.responses import JSONResponse
 
 from models import (
     User,
@@ -28,12 +28,6 @@ from request.main import (
     CreateEventRequest
 )
 
-# JWT 設定
-SECRET_KEY = "your_secret_key"  # 設定安全金鑰
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # Token 有效期 (分鐘)
-
-
 # 初始化密碼加密器
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -42,12 +36,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # bq_client = bigquery.Client()
 
 router = APIRouter()
-
-def create_access_token(data: dict, expires_delta: timedelta):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # ------------------ Health Check ------------------
 @router.get("/healthz", summary="Health Check", tags=["System"], description="API 健康檢查")
@@ -90,28 +78,18 @@ def register_user(request: RegisterUserRequest, db: Session = Depends(get_postgr
     return {"message": "User registered successfully"}
 
 
-@router.post("/api/user/login", summary="User Login", tags=["User"], response_description="登入成功返回 auth_token")
+@router.post("/api/user/login", summary="User Login")
 def login_user(request: LoginRequest, db: Session = Depends(get_postgresql_connection)):
     """
-    Log in a user by validating credentials and returning an auth token.
+    User login: Verify email and password, then return success message only.
     """
-    # 驗證用戶是否存在
+    # 驗證用戶
     user = db.query(User).filter(User.email == request.email).first()
     if not user or not pwd_context.verify(request.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    # 產生 JWT Token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email, "user_id": user.id}, expires_delta=access_token_expires
-    )
-
-    return {
-        "message": "Login successful",
-        "auth_token": access_token,
-        "user_id": user.id,
-        "username": user.username
-    }
+    # 返回用戶的 username
+    return {"message": "Login successful", "username": user.username}
 
 # ------------------ Team Routes ------------------
 @router.post("/api/team/create", summary="Create Team", tags=["Team"], response_description="團隊創建成功")

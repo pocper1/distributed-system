@@ -1,70 +1,62 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext"; // 從 AuthContext 取得登入資訊
 
-export const EventList = () => {
+export const EventList = ({ authToken }) => {
     const [eventList, setEventList] = useState([]); // 活動列表
     const [userEvents, setUserEvents] = useState([]); // 使用者已加入的活動
     const [isLoading, setIsLoading] = useState(false);
-
-    const { authToken } = useAuth(); // 從 AuthContext 取得 authToken
+    const [error, setError] = useState(null);
 
     // 取得活動列表與使用者已加入的活動
     useEffect(() => {
         const fetchData = async () => {
-            try {
-                setIsLoading(true);
+            setIsLoading(true);
+            setError(null);
 
+            try {
                 // 獲取所有活動
-                const eventsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/events`, {
-                    headers: {
-                        Authorization: `Bearer ${authToken}`,
-                    },
-                });
+                const eventsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/event/list`, {});
+
+                if (!eventsResponse.ok) throw new Error("無法獲取活動列表");
                 const eventsData = await eventsResponse.json();
                 setEventList(eventsData.events || []);
 
                 // 獲取使用者已加入的活動
-                const userEventsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/user/events`, {
-                    headers: {
-                        Authorization: `Bearer ${authToken}`,
-                    },
-                });
+                const userEventsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/user/events`, {});
+
+                if (!userEventsResponse.ok) throw new Error("無法獲取已加入的活動");
                 const userEventsData = await userEventsResponse.json();
                 setUserEvents(userEventsData.events || []);
-            } catch (error) {
-                console.error("Error fetching event data:", error);
+            } catch (err) {
+                console.error("Error fetching data:", err.message);
+                setError(err.message);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        if (authToken) {
-            fetchData();
-        }
+        if (authToken) fetchData();
     }, [authToken]);
 
     // 加入活動功能
     const handleAddEvent = async eventId => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/join`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/event/${eventId}/join`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${authToken}`,
+                    "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ event_id: eventId }),
             });
 
-            if (response.ok) {
-                alert("成功加入活動！");
-                setUserEvents(prev => [...prev, eventId]); // 更新加入的活動列表
-            } else {
+            if (!response.ok) {
                 const errorData = await response.json();
-                alert(`加入失敗: ${errorData.detail}`);
+                throw new Error(errorData.detail || "加入活動失敗");
             }
-        } catch (error) {
-            console.error("Error adding event:", error);
-            alert("加入活動時發生錯誤！");
+
+            alert("成功加入活動！");
+            setUserEvents(prev => [...prev, eventId]); // 更新加入的活動列表
+        } catch (err) {
+            console.error("Error adding event:", err.message);
+            alert(err.message || "加入活動時發生錯誤！");
         }
     };
 
@@ -74,6 +66,7 @@ export const EventList = () => {
     return (
         <div className="container mt-5">
             <h3>活動列表</h3>
+            {error && <div className="alert alert-danger">{error}</div>}
             {isLoading ? (
                 <p>資料加載中...</p>
             ) : (
