@@ -10,6 +10,7 @@ class Checkin(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     team_id = Column(Integer, ForeignKey("teams.id"))
     content = Column(Text, nullable=False)
+    photo_url = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationship with the User model

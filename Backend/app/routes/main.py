@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 # from google.cloud import bigquery
 from datetime import datetime
-from database import get_postgresql_connection
+from database import get_postgresql_connection, get_redis_connection
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
@@ -175,7 +175,7 @@ def user_checkin(request: UserCheckinRequest, db: Session = Depends(get_postgres
         user_teams.c.user_id == request.user_id,
         user_teams.c.team_id == request.team_id
     ).first()
-    if not user_team:
+    if not user_team:   
         raise HTTPException(
             status_code=403, detail="User does not belong to this team")
 
@@ -183,11 +183,16 @@ def user_checkin(request: UserCheckinRequest, db: Session = Depends(get_postgres
     new_checkin = Checkin(
         user_id=request.user_id,
         team_id=request.team_id,
-        content=request.content
+        content=request.content,
+        photo_url=request.photo_url
     )
     db.add(new_checkin)
     db.commit()
     db.refresh(new_checkin)
+
+    redis_conn = get_redis_connection()
+    redis_conn.publish("team_checkin_channel", request.team_id)
+
     return {"message": "Check-in recorded successfully", "checkin_id": new_checkin.id}
 
 
@@ -213,6 +218,28 @@ def update_score(request: UpdateScoreRequest, db: Session = Depends(get_postgres
     db.commit()
     return {"message": "Score updated successfully", "team_id": request.team_id, "score": request.value}
 
+@router.get("/api/team/{team_id}/score", summary="Get Team Score", tags=["Score"])
+def get_team_score(team_id: int):
+    """
+    從 Redis 快取中獲取團隊分數
+    """
+    redis_conn = get_redis_connection()
+    score = redis_conn.get(f"team:{team_id}:score")
+    if score is None:
+        raise HTTPException(status_code=404, detail="Score not available")
+    return {"team_id": team_id, "score": float(score)}
+
+@router.get("/api/redis/ping", summary="Test Redis Connection", tags=["System"])
+def test_redis_connection():
+    """
+    Test connection to Redis by sending a PING command.
+    """
+    try:
+        redis_conn = get_redis_connection()
+        pong = redis_conn.ping()
+        return {"message": "Redis connection successful", "response": "PONG" if pong else "No response"}
+    except Exception as e:
+        return {"message": "Redis connection failed", "error": str(e)}
 
 # ------------------ Ranking Routes ------------------
 

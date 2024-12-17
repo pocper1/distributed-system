@@ -22,6 +22,8 @@ class UserCheckinRequest(BaseModel):
     user_id: int
     team_id: int
     content: str
+    photo_url: str
+
 
 # Update score request
 class UpdateScoreRequest(BaseModel):

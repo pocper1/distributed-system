@@ -1,6 +1,8 @@
 
 from fastapi import FastAPI
 import logging
+import threading
+from services.score_updater import subscribe_and_sync_scores, startup_sync_scores
 
 # custom
 from routes.main import router
@@ -43,3 +45,17 @@ except Exception as e:
 
 # Include all routes from /app/routes/main.py
 app.include_router(router)
+
+def start_sync_thread():
+    """
+    啟動 Redis Pub/Sub 監聽器線程
+    """
+    threading.Thread(target=subscribe_and_sync_scores, daemon=True).start()
+    print("Started Redis Pub/Sub listener thread.")
+
+@app.on_event("startup")
+def on_startup():
+    startup_sync_scores()
+
+# Start the score updater thread
+start_sync_thread()

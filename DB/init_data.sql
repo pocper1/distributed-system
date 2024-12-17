@@ -93,19 +93,19 @@ VALUES
 ('Final Awards', 'Awards ceremony for winning teams', '2024-03-01 14:00:00', '2024-03-01 16:00:00');
 
 -- Insert fake user-team relationships
-INSERT INTO user_teams (user_id, team_id, weight)
+INSERT INTO user_teams (user_id, team_id)
 VALUES
-(1, 1, 1.0),
-(1, 2, 0.5),
-(2, 1, 1.0),
-(3, 3, 1.0),
-(4, 4, 1.0),
-(5, 5, 1.0),
-(6, 1, 1.0),
-(7, 2, 0.8),
-(8, 3, 0.5),
-(9, 4, 1.0),
-(10, 5, 0.7);
+(1, 1),
+(1, 2),
+(2, 1),
+(3, 3),
+(4, 4),
+(5, 5),
+(6, 1),
+(7, 2),
+(8, 3),
+(9, 4),
+(10, 5);
 
 -- Insert fake check-ins with photo URLs
 INSERT INTO checkins (team_id, user_id, content, photo_url)
