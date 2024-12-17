@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, Table, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
+from datetime import datetime
+from app.models.association import user_teams
 
 class User(Base):
     __tablename__ = "users"
@@ -9,10 +11,10 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     password = Column(String)
-    team_id = Column(Integer, ForeignKey("teams.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship with the Team model
-    team = relationship("Team", back_populates="members")
+    # Relationship: 多對多關係
+    teams = relationship("Team", secondary=user_teams, back_populates="members")
 
     def create(self, db, username, email, password, team_id=None):
         """
