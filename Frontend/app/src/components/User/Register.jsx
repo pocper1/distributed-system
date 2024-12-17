@@ -5,16 +5,48 @@ export const Register = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [error, setError] = useState(null); // 用於顯示錯誤訊息
+    const [success, setSuccess] = useState(null); // 用於顯示成功訊息
 
-    const handleSubmit = e => {
+    const handleSubmit = async e => {
         e.preventDefault();
+        setError(null); // 清除前一次錯誤
+        setSuccess(null);
+
         if (password !== confirmPassword) {
-            alert("密碼不一致！");
+            setError("密碼不一致！");
             return;
         }
-        // 模擬提交到後端
-        console.log("Register data:", { name, email, password });
-        alert("註冊成功！");
+
+        try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/user/register`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    username: name,
+                    email: email,
+                    password: password,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+
+                // Check if errorData.detail is an array before using .map
+                const errorMessage = Array.isArray(errorData.detail) ? errorData.detail.map(item => `${item.msg} (Field: ${item.loc[1]})`).join(", ") : errorData.detail || "註冊失敗，請稍後再試";
+
+                throw new Error(errorMessage);
+            }
+
+            const data = await response.json();
+            setSuccess(data.message || "註冊成功！");
+            console.log("Register success:", data);
+        } catch (err) {
+            console.error("Register error:", err);
+            setError(err.message || "註冊時發生錯誤，請稍後再試");
+        }
     };
 
     return (
@@ -23,6 +55,13 @@ export const Register = () => {
                 <div className="col-md-6 col-md-offset-3">
                     <div className="form-container">
                         <h2>Register</h2>
+
+                        {/* 錯誤訊息 */}
+                        {error && <div className="alert alert-danger">{error}</div>}
+
+                        {/* 成功訊息 */}
+                        {success && <div className="alert alert-success">{success}</div>}
+
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
                                 <label htmlFor="name">Name:</label>

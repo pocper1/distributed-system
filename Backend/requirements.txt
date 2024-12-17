@@ -1,10 +1,26 @@
+# FastAPI 和相關工具
 fastapi==0.95.1
 uvicorn==0.20.0
+
+# Pydantic 驗證和 Email 支援
 pydantic==1.10.4
 pydantic[email]==1.10.4
-requests==2.28.1
+
+# 資料庫和 ORM
 sqlalchemy==2.0.21
 psycopg2-binary==2.9.7
 cloud-sql-python-connector[pg8000]
-python-dotenv==1.0.0
+
+# Redis
 redis==4.6.0
+
+# Protobuf
+protobuf==3.20.3
+
+# 密碼加密
+passlib[bcrypt]==1.7.4
+
+# 其他工具
+requests==2.31.0
+python-dotenv==1.0.0
+python-jose==3.3.0

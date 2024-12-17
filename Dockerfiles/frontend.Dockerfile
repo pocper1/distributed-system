@@ -11,7 +11,7 @@ RUN npm install
 # Build the React application for production
 COPY app/public /app/public/
 COPY app/src /app/src/
-
+COPY app/.env /app/
 RUN npm run build
 
 # Stage 2: Serve the built files using Nginx

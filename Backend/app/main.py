@@ -3,9 +3,10 @@ from fastapi import FastAPI
 import logging
 
 # custom
-from app.routes.main import router
-from app.database import get_postgresql_connection, get_redis_connection
-from app.models import *
+from routes.main import router
+from database import get_postgresql_connection, get_redis_connection
+from models import *
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -18,7 +19,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI application
-app = FastAPI()
+app = FastAPI(
+    title="Marketing Campaign API",
+    description="This API manages user registration, events, teams, check-ins, and rankings.",
+    version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 更改為特定域名以增加安全性
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize PostgreSQL connection
 try:

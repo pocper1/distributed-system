@@ -10,14 +10,10 @@ from redis import Redis
 load_dotenv()
 
 # PostgreSQL Configuration
-POSTGRES_DB = os.getenv("POSTGRES_DB", "your_db")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "your_user")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "your_password")
-INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME", "your_project_id:region:instance_id")
-
-# Redis Configuration
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+POSTGRES_DB = os.getenv("POSTGRES_DB", "distributedSystems")
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME")
 
 # Function to create a Cloud SQL connection using Google Cloud SQL Connector
 def getconn():

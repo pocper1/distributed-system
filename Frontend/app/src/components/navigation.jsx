@@ -1,90 +1,53 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Dropdown, Nav, Navbar, Container } from "react-bootstrap";
 
 export const Navigation = ({ isLoggedIn, userName, onLogout }) => {
     return (
-        <nav id="menu" className="navbar navbar-default navbar-fixed-top">
-            <div className="container">
-                <div className="navbar-header">
-                    <button
-                        type="button"
-                        className="navbar-toggle collapsed"
-                        data-toggle="collapse"
-                        data-target="#bs-example-navbar-collapse-1"
-                    >
-                        {" "}
-                        <span className="sr-only">Toggle navigation</span>{" "}
-                        <span className="icon-bar"></span>{" "}
-                        <span className="icon-bar"></span>{" "}
-                        <span className="icon-bar"></span>{" "}
-                    </button>
-                    <Link className="navbar-brand page-scroll" to="/">
-                        行銷活動
-                    </Link>
-                </div>
-
-                <div
-                    className="collapse navbar-collapse"
-                    id="bs-example-navbar-collapse-1"
-                >
-                    <ul className="nav navbar-nav navbar-right">
+        <Navbar bg="light" expand="lg" fixed="top">
+            <Container>
+                {/* Navbar Brand */}
+                <Navbar.Brand as={Link} to="/">
+                    行銷活動
+                </Navbar.Brand>
+                <Navbar.Toggle aria-controls="basic-navbar-nav" />
+                <Navbar.Collapse id="basic-navbar-nav">
+                    <Nav className="ms-auto">
                         {isLoggedIn ? (
                             <>
-                                {/* 使用者名稱 */}
-                                <li>
-                                    <button className="btn btn-link navbar-btn">
-                                        Hi, {userName}
-                                    </button>
-                                </li>
+                                {/* Event List */}
+                                <Nav.Link as={Link} to="/event/list">
+                                    活動列表
+                                </Nav.Link>
 
-                                {/* User Status */}
-                                <li>
-                                    <Link to="/user-status" className="page-scroll">
-                                        User Status
-                                    </Link>
-                                </li>
-
-                                {/* User Info */}
-                                <li>
-                                    <Link to="/user-info" className="page-scroll">
-                                        User Info
-                                    </Link>
-                                </li>
-
-                                {/* Team Info */}
-                                <li>
-                                    <Link to="/team-info" className="page-scroll">
-                                        Team Info
-                                    </Link>
-                                </li>
-
-                                {/* Logout */}
-                                <li>
-                                    <button
-                                        className="btn btn-link navbar-btn page-scroll"
-                                        onClick={onLogout}
-                                    >
-                                        Logout
-                                    </button>
-                                </li>
+                                {/* User Info Dropdown */}
+                                <Dropdown>
+                                    <Dropdown.Toggle variant="light" id="dropdown-user-info">
+                                        {userName}
+                                    </Dropdown.Toggle>
+                                    <Dropdown.Menu>
+                                        <Dropdown.Item as={Link} to="/user/info">
+                                            個人資料
+                                        </Dropdown.Item>
+                                        <Dropdown.Item onClick={onLogout} style={{ cursor: "pointer" }}>
+                                            登出
+                                        </Dropdown.Item>
+                                    </Dropdown.Menu>
+                                </Dropdown>
                             </>
                         ) : (
                             <>
-                                <li>
-                                    <Link to="/login" className="page-scroll">
-                                        Login
-                                    </Link>
-                                </li>
-                                <li>
-                                    <Link to="/register" className="page-scroll">
-                                        Register
-                                    </Link>
-                                </li>
+                                <Nav.Link as={Link} to="/login">
+                                    登入
+                                </Nav.Link>
+                                <Nav.Link as={Link} to="/register">
+                                    註冊
+                                </Nav.Link>
                             </>
                         )}
-                    </ul>
-                </div>
-            </div>
-        </nav>
+                    </Nav>
+                </Navbar.Collapse>
+            </Container>
+        </Navbar>
     );
 };

@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, Table, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from app.database import Base
+from database import Base
 from datetime import datetime
-from app.models.association import user_teams
+from models.association import user_teams
 
 class User(Base):
     __tablename__ = "users"

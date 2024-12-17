@@ -30,32 +30,7 @@ services:
             - POSTGRES_USER=${POSTGRES_USER}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
             - INSTANCE_CONNECTION_NAME=${INSTANCE_CONNECTION_NAME}
-            - REDIS_HOST=${REDIS_HOST}
-            - REDIS_PORT=${REDIS_PORT}
-        depends_on:
-            - db
-            - redis
-    db:
-        image: postgres:13
-        restart: unless-stopped
-        container_name: db
-        environment:
-            - POSTGRES_USER=${POSTGRES_USER}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-            - POSTGRES_DB=${POSTGRES_DB}
-        ports:
-            - "5432:5432"
-        volumes:
-            - db-data:/var/lib/postgresql/data
-            - ./DB:/docker-entrypoint-initdb.d 
-    redis:
-        image: redis:7
-        container_name: redis
-        restart: always
-        ports:
-            - "6379:6379"
-        volumes:
-            - redis_data:/data
+
     
     nginx:
         image: nginx:alpine

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
 
 # User registration request
 class RegisterUserRequest(BaseModel):
@@ -26,3 +27,9 @@ class UserCheckinRequest(BaseModel):
 class UpdateScoreRequest(BaseModel):
     team_id: int
     value: float
+
+class CreateEventRequest(BaseModel):
+    name: str
+    description: str
+    start_time: datetime
+    end_time: datetime
