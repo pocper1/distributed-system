@@ -12,8 +12,6 @@ from database import get_postgresql_connection
 from models import *
 from fastapi.middleware.cors import CORSMiddleware
 
-
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,  # Set log level to INFO
@@ -26,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI application
 app = FastAPI(
-    title="Marketing Campaign API",
-    description="This API manages user registration, events, teams, check-ins, and rankings.",
+    title="按讚活動",
+    description="按讚拿獎金",
     version="1.0.0",
 )
 
@@ -35,9 +33,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://frontend-service-72785805306.asia-east1.run.app"], 
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"], 
-    allow_headers=["Authorization", "Content-Type"], 
+    allow_methods=["*"],  # 允許所有 HTTP 方法
+    allow_headers=["*"],  # 允許所有 Headers
 )
+
 
 # Initialize PostgreSQL connection
 try:
@@ -47,10 +46,31 @@ try:
 except Exception as e:
     logger.error(f"Failed to connect to PostgreSQL: {e}")
 
+# # Initialize Redis connection
+# try:
+#     logger.info("Connecting to Redis...")
+#     redis_conn = get_redis_connection()
+#     logger.info("Redis connection established.")
+# except Exception as e:
+#     logger.error(f"Failed to connect to Redis: {e}")
+
 # Include all routes from /app/routes/main.py
 app.include_router(router)
 app.include_router(event_router)
 
+# def start_sync_thread():
+#     """
+#     啟動 Redis Pub/Sub 監聽器線程
+#     """
+#     threading.Thread(target=subscribe_and_sync_scores, daemon=True).start()
+#     print("Started Redis Pub/Sub listener thread.")
+
+# @app.on_event("startup")
+# def on_startup():
+#     startup_sync_scores()
+
+# # Start the score updater thread
+# start_sync_thread()
 
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
