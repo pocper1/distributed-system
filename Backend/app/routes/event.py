@@ -499,6 +499,7 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
         .join(Score, Score.team_id == Team.id, isouter=True)  # LEFT JOIN 以確保隊伍沒有分數時也能顯示
         .filter(Team.event_id == event_id)
         .order_by(desc(Score.score))  # 根據分數降序排序
+        .limit(20)
         .all()
     )
 
