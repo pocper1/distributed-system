@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: asia-east1-docker.pkg.dev/vivid-reality-443509-d4/frontend-repo/frontend:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: REACT_APP_API_URL
+              value: "http://34.80.140.244/api"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
