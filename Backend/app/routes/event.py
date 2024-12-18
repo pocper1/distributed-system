@@ -109,7 +109,7 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
     Upload check-in data for all teams the user belongs to in a specific event.
     """
     event = is_event_active(event_id, db)
-    
+
     # 1. 驗證活動是否存在
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
@@ -231,12 +231,12 @@ def get_event_uploads(event_id: int, db: Session = Depends(get_postgresql_connec
 @router.get("/api/event/all", summary="Get All Events", tags=["Event"], response_description="List of all events")
 def get_events(db: Session = Depends(get_postgresql_connection)):
     """
-    Retrieve all events with only the required fields.
+    Retrieve all events sorted by created_at in descending order with a limit.
     """
-    # 僅選擇需要的欄位，避免讀取不必要的資料
+    # 按 created_at 降序排序，並限制返回數量
     events = (
-        db.query(Event.id, Event.name, Event.start_time, Event.end_time)
-        .order_by(Event.end_time.asc())  # 按 end_time 升序排序
+        db.query(Event.id, Event.name, Event.start_time, Event.end_time, Event.created_at)
+        .order_by(Event.created_at.desc())  # 按 created_at 降序排序
         .limit(10)  # 限制返回的筆數為 10
         .all()
     )
@@ -248,7 +248,8 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
                 "id": event.id,
                 "name": event.name,
                 "start_time": event.start_time,
-                "end_time": event.end_time
+                "end_time": event.end_time,
+                "created_at": event.created_at,  # 返回創建時間
             }
             for event in events
         ]
