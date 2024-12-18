@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from fastapi import Query
+from datetime import datetime, timedelta, timezone
 
 from services.score_service import calculate_team_score
 
@@ -327,15 +328,6 @@ def user_checkin(event_id: int, request: UserCheckinRequest, db: Session = Depen
 
 
 # ------------------ Team Routes ------------------
-@router.options("/{rest_of_path:path}")
-async def preflight_check(rest_of_path: str):
-    headers = {
-        "Access-Control-Allow-Origin": "https://frontend-service-72785805306.asia-east1.run.app",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    }
-    return JSONResponse(content={}, headers=headers)
-from datetime import datetime, timedelta, timezone
 
 @router.post("/api/event/{event_id}/team/create", summary="Create Team for Event", tags=["Event", "Team"], response_description="Create team successfully")
 def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends(get_postgresql_connection)):
@@ -426,32 +418,29 @@ def get_team_members(team_id: int, db: Session = Depends(get_postgresql_connecti
 
     return {"members": [user.username for user in users]}
 
-
 @router.post("/api/event/{event_id}/teams/join", summary="User Join Team", tags=["Event", "Team"])
 def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get_postgresql_connection)):
-    """
-    User joins a team for a specific event.
-    """
+    # 驗證活動是否有效
     event = is_event_active(event_id, db)
 
-    # 1. 查找活動
+    # 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # 2. 查找隊伍
+    # 查找隊伍
     team = db.query(Team).filter(Team.id == request.team_id).first()
     if not team or team.event_id != event_id:
         raise HTTPException(
             status_code=404, detail="Team not found or not associated with this event"
         )
 
-    # 3. 查找使用者
+    # 查找用戶
     user = db.query(User).filter(User.id == request.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 4. 檢查使用者是否已經在隊伍中
+    # 檢查用戶是否已加入隊伍
     existing_user_team = db.query(user_teams).filter(
         user_teams.c.user_id == request.user_id,
         user_teams.c.team_id == request.team_id
@@ -462,21 +451,21 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
             status_code=400, detail="User already in this team"
         )
 
-    # 5. 插入使用者與隊伍的關聯資料
+    # 插入用戶與隊伍關聯
     try:
         insert_statement = user_teams.insert().values(
             user_id=request.user_id,
             team_id=request.team_id
         )
         print(f"Executing SQL: {insert_statement}")  # 調試用
-        db.execute(insert_statement)  # 插入資料到 user_teams 表
-        db.commit()  # 提交資料庫更改
+        db.execute(insert_statement)  # 插入數據
+        db.commit()  # 提交數據庫更改
 
         print(f"User {request.user_id} successfully joined Team {request.team_id}")
 
     except Exception as e:
         print(f"Database Error: {str(e)}")  # 調試用
-        db.rollback()  # 回滾資料庫變更
+        db.rollback()  # 回滾數據庫變更
         raise HTTPException(
             status_code=500, detail=f"Database insert failed: {str(e)}"
         )
