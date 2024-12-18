@@ -10,14 +10,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # 複製 requirements.txt 並安裝 Python 依賴
-COPY Backend/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 複製應用程式程式碼 (Backend/app)
-COPY Backend/app /app
+COPY app /app
 
 # 複製密鑰檔案
-COPY Backend/keys /app/keys
+COPY keys /app/keys
 
 # 複製 .env 檔案
 # COPY .env /app/.env
@@ -27,7 +27,6 @@ ENV GOOGLE_APPLICATION_CREDENTIALS="/app/keys/vivid-reality-443509-d4-fc738fde2b
     PYTHONUNBUFFERED=1
 
 # 暴露應用程式運行的端口
-EXPOSE 8000
+EXPOSE 8080
 
-# 設定啟動指令，支援多 worker 模式
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 4

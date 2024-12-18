@@ -1,6 +1,8 @@
 
 from fastapi import FastAPI
 import logging
+import uvicorn
+import os
 
 # custom
 from routes.main import router
@@ -31,10 +33,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 修改為具體前端域名以提高安全性
+    allow_origins=["https://frontend-service-72785805306.asia-east1.run.app"], 
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"], 
+    allow_headers=["Authorization", "Content-Type"], 
 )
 
 # Initialize PostgreSQL connection
@@ -48,3 +50,7 @@ except Exception as e:
 # Include all routes from /app/routes/main.py
 app.include_router(router)
 app.include_router(event_router)
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
