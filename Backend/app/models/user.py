@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Table, ForeignKey, DateTime
+from sqlalchemy import Boolean, Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -12,15 +12,16 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+    is_superadmin = Column(Boolean, default=False)
 
-    # Relationship: 多對多關係
+    # 多对多关系，User 与 Team 通过 user_teams 关联
     teams = relationship("Team", secondary=user_teams, back_populates="members")
 
     def create(self, db, username, email, password, team_id=None):
         """
-        Create a new user.
+        创建新用户
         """
-        user = User(username=username, email=email, password=password, team_id=team_id)
+        user = User(username=username, email=email, password=password)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -28,7 +29,7 @@ class User(Base):
 
     def login(self, db, email, password):
         """
-        Validate login credentials.
+        验证用户的登录凭据
         """
         user = db.query(User).filter(User.email == email).first()
         if not user or user.password != password:
@@ -37,7 +38,7 @@ class User(Base):
 
     def edit(self, db, user_id, **kwargs):
         """
-        Edit user details.
+        编辑用户信息
         """
         user = db.query(User).filter(User.id == user_id).first()
         if not user:

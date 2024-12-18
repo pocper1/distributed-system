@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 export const CreateTeam = () => {
     const [teamName, setTeamName] = useState(""); // 團隊名稱
     const [teamDescription, setTeamDescription] = useState(""); // 團隊描述
     const [loading, setLoading] = useState(false); // 處理上傳的狀態
     const navigate = useNavigate(); // 初始化 navigate
+    const { eventId } = useParams(); // 從 URL 參數獲取 eventId
 
     const handleSubmit = async e => {
         e.preventDefault();
@@ -22,7 +23,7 @@ export const CreateTeam = () => {
 
         try {
             setLoading(true);
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/team/create`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/event/${eventId}/team/create`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -31,12 +32,13 @@ export const CreateTeam = () => {
             });
 
             if (response.ok) {
+                const data = await response.json();
                 alert("團隊創建成功！");
                 setTeamName(""); // 清空輸入
                 setTeamDescription("");
 
-                // 自動導向到 /team/list
-                navigate("/team/list");
+                // 自動導向到 /event/${eventId}
+                navigate("/event/${eventId}");
             } else {
                 const data = await response.json();
                 alert(`創建失敗: ${data.detail || "請稍後再試！"}`);

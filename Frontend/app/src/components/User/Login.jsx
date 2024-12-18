@@ -8,7 +8,7 @@ export const Login = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async e => {
         e.preventDefault();
         setError(null);
         setIsSubmitting(true);
@@ -27,9 +27,12 @@ export const Login = () => {
 
             const data = await response.json();
             console.log("Login success:", data);
-            
-            // 儲存使用者名稱到 localStorage
+
+            // 儲存 userId, userName 和 isSuperadmin 到 localStorage
+            localStorage.setItem("userId", data.user_id); // 儲存 userId
             localStorage.setItem("userName", data.username);
+            localStorage.setItem("isSuperadmin", data.is_superadmin);
+            localStorage.setItem("isLogin", data.is_login);
 
             // 登入成功，導向首頁
             alert("登入成功！");
@@ -49,31 +52,13 @@ export const Login = () => {
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
                     <label htmlFor="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        className="form-control"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
+                    <input type="email" id="email" className="form-control" value={email} onChange={e => setEmail(e.target.value)} required />
                 </div>
                 <div className="form-group mt-3">
                     <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        className="form-control"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
+                    <input type="password" id="password" className="form-control" value={password} onChange={e => setPassword(e.target.value)} required />
                 </div>
-                <button
-                    type="submit"
-                    className="btn btn-primary w-100 mt-4"
-                    disabled={isSubmitting}
-                >
+                <button type="submit" className="btn btn-primary w-100 mt-4" disabled={isSubmitting}>
                     {isSubmitting ? "登入中..." : "登入"}
                 </button>
             </form>

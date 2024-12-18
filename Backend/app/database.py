@@ -10,8 +10,8 @@ from redis import Redis
 load_dotenv()
 
 # PostgreSQL Configuration
-POSTGRES_DB = os.getenv("POSTGRES_DB", "distributedSystems")
-POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "postgres")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres_01")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME")
 

@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
+from sqlalchemy import String
 
 class Checkin(Base):
     __tablename__ = "checkins"
@@ -11,6 +12,4 @@ class Checkin(Base):
     team_id = Column(Integer, ForeignKey("teams.id"))
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationship with the User model
-    user = relationship("User")
+    photo_url = Column(String, nullable=True) 

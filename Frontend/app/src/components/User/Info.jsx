@@ -1,66 +1,87 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 
-export const UserInfo = ({ userName }) => {
-    const [userInfo, setUserInfo] = useState({}); // 使用者資訊狀態
-    const [loading, setLoading] = useState(true); // 載入狀態
-    const [error, setError] = useState(null); // 錯誤狀態
+export const UserInfo = () => {
+    const [userInfo, setUserInfo] = useState(null);
+    const [userTeams, setUserTeams] = useState([]); // 新增狀態來儲存使用者的隊伍
+    const [error, setError] = useState(null);
+    const { userId } = useParams(); // 從 URL 中獲取 userId
 
     useEffect(() => {
         const fetchUserInfo = async () => {
             try {
-                // 從後端 API 獲取使用者資訊
-                const response = await fetch(`${process.env.REACT_APP_API_URL}/api/user/info`, {
+                const response = await fetch(`${process.env.REACT_APP_API_URL}/api/user/${userId}/info`, {
                     method: "GET",
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    credentials: "include", // 確保發送 cookies（如使用 Session 或 JWT）
                 });
 
                 if (!response.ok) {
-                    throw new Error("無法獲取使用者資訊");
+                    throw new Error("無法獲取用戶資料");
                 }
 
                 const data = await response.json();
-                setUserInfo(data);
-                setLoading(false);
+                setUserInfo(data); // 設置用戶資料
             } catch (err) {
-                console.error(err);
-                setError(err.message);
-                setLoading(false);
+                setError(err.message); // 設置錯誤信息
+            }
+        };
+
+        const fetchUserTeams = async () => {
+            try {
+                const response = await fetch(`${process.env.REACT_APP_API_URL}/api/user/${userId}/teams`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error("無法獲取隊伍資料");
+                }
+
+                const data = await response.json();
+                setUserTeams(data.teams || []); // 設置隊伍資料
+            } catch (err) {
+                setError(err.message); // 設置錯誤信息
             }
         };
 
         fetchUserInfo();
-    }, []);
-
-    if (loading) {
-        return <div className="text-center">載入中...</div>;
-    }
+        fetchUserTeams();
+    }, [userId]); // 當 userId 改變時重新加載資料
 
     if (error) {
-        return <div className="alert alert-danger text-center">{error}</div>;
+        return <div>錯誤: {error}</div>;
+    }
+
+    if (!userInfo || userTeams.length === 0) {
+        return <div>載入中...</div>;
     }
 
     return (
         <div className="container mt-5">
-            <h2 className="text-center mb-4">使用者資訊</h2>
-            <div className="card shadow-sm mx-auto" style={{ maxWidth: "500px" }}>
+            <h2>用戶資料</h2>
+            <div className="card">
                 <div className="card-body">
-                    <h5 className="card-title text-center mb-3">歡迎回來, {userName || userInfo.username}</h5>
-                    <ul className="list-group list-group-flush">
-                        <li className="list-group-item">
-                            <strong>使用者名稱：</strong> {userInfo.username || "N/A"}
-                        </li>
-                        <li className="list-group-item">
-                            <strong>Email：</strong> {userInfo.email || "N/A"}
-                        </li>
-                        <li className="list-group-item">
-                            <strong>加入時間：</strong> {userInfo.created_at || "N/A"}
-                        </li>
-                    </ul>
+                    <h5 className="card-title">用戶名: {userInfo.username}</h5>
+                    <p className="card-text">電子郵件: {userInfo.email}</p>
+                    <p className="card-text">管理員: {userInfo.is_superadmin ? "是" : "否"}</p>
+                    <p className="card-text">註冊時間: {new Date(userInfo.created_at).toLocaleString()}</p>
                 </div>
             </div>
+
+            <h3 className="mt-4">已加入隊伍</h3>
+            {userTeams.length > 0 ? (
+                <ul>
+                    {userTeams.map(team => (
+                        <li key={team.id}>{team.name}</li> // 顯示隊伍名稱
+                    ))}
+                </ul>
+            ) : (
+                <p>此用戶尚未加入任何隊伍。</p>
+            )}
         </div>
     );
 };

@@ -4,6 +4,8 @@ import logging
 
 # custom
 from routes.main import router
+from routes.event import router as event_router
+
 from database import get_postgresql_connection, get_redis_connection
 from models import *
 
@@ -43,3 +45,4 @@ except Exception as e:
 
 # Include all routes from /app/routes/main.py
 app.include_router(router)
+app.include_router(event_router)
