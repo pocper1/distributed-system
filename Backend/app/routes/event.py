@@ -97,10 +97,15 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
         end_time=request.end_time,
         created_at=datetime.now(tz)
     )
-    db.add(new_event)
-    db.commit()
-    db.refresh(new_event)
-    return {"message": "Event created successfully", "event_id": new_event.id}
+    try:
+        db.add(new_event)
+        db.commit()
+        db.refresh(new_event)
+        return {"message": "Event created successfully", "event_id": new_event.id}
+    except Exception as e:
+        print(f"Error: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to create event")
 
 
 @router.post("/api/event/{event_id}/upload", summary="Upload Check-in Data", tags=["Event", "Upload"])
