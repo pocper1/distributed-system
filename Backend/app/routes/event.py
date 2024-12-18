@@ -441,15 +441,15 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
     if not event:
         raise HTTPException(status_code=400, detail="Event not found")
 
-    # 查詢活動中的隊伍
-    teams = db.query(Team).filter(Team.event_id == event_id).all()
-    if not teams:
+    # 查詢活動中的最高分的20個隊伍
+    top_teams = db.query(Team).join(Score).filter(Team.event_id == event_id).order_by(Score.score.desc()).limit(20).all()
+    if not top_teams:
         raise HTTPException(
             status_code=400, detail="No teams found for this event")
 
     # 構建排名數據
     rankings = []
-    for team in teams:
+    for team in top_teams:
         # 計算隊伍人數
         team_size = db.query(user_teams).filter(
             user_teams.c.team_id == team.id).count()
@@ -465,7 +465,4 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
             "team_size": team_size
         })
 
-    # 按分數排序
-    sorted_rankings = sorted(rankings, key=lambda r: r["score"], reverse=True)
-
-    return {"rankings": sorted_rankings}
+    return {"rankings": rankings}

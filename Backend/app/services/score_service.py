@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import time
 
 # 參數設定
-ALPHA = 0.02  # 時間差權重調整因子
-BETA = 20    # 新會員數量權重調整因子
+ALPHA = 0.05  # 時間差權重調整因子
+BETA = 10    # 新會員數量權重調整因子
 
 def calculate_team_score(team_id: int, db: Session):
     """

@@ -5,7 +5,7 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: 1
+  replicas: 2  # 前端可根據需求啟動兩個副本
   selector:
     matchLabels:
       app: frontend
@@ -23,12 +23,14 @@ spec:
             - name: NODE_ENV
               value: production
             - name: REACT_APP_API_URL
-              value: "http://backend-service/api"
+              value: "http://backend-service/api"  # 指向後端的 ClusterIP Service
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
+  labels:
+    app: frontend
 spec:
   selector:
     app: frontend
@@ -36,4 +38,4 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  type: LoadBalancer
+  type: LoadBalancer  # 將前端暴露給外部，或者選擇 Ingress 進行流量控制
