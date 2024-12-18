@@ -142,11 +142,14 @@ export const EventDetail = () => {
             </div>
 
             <div className="mt-4">
-                <button className="btn btn-success" onClick={() => navigate(`/event/${eventId}/team/create`)} disabled={!isEventActive()}>
+                <button className="btn btn-success mr-3" onClick={() => navigate(`/event/${eventId}/team/create`)} disabled={!isEventActive()}>
                     新增隊伍
                 </button>
-                <button className="btn btn-warning" onClick={() => navigate(`/event/${eventId}/upload`)} disabled={!isEventActive()}>
+                <button className="btn btn-warning mr-3" onClick={() => navigate(`/event/${eventId}/upload`)} disabled={!isEventActive()}>
                     上傳資料
+                </button>
+                <button className="btn btn-success mr-3" onClick={() => navigate(`/event/${eventId}/uploadList`)}>
+                    留言列表
                 </button>
             </div>
 

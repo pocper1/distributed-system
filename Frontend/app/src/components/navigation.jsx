@@ -5,7 +5,7 @@ import { Dropdown, Nav, Navbar, Container } from "react-bootstrap";
 export const Navigation = ({ onLogout }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [userName, setUserName] = useState("");
-    const [isSuperuser, setIsSuperuser] = useState(false); // 新增 isSuperuser 狀態
+    const [isSuperuser, setIsSuperuser] = useState(false); // 判斷是否為 superadmin
 
     useEffect(() => {
         const checkUserName = () => {
@@ -15,7 +15,7 @@ export const Navigation = ({ onLogout }) => {
             if (storedUserName) {
                 setIsLoggedIn(true);
                 setUserName(storedUserName);
-                setIsSuperuser(superadmin === "true"); // 根據 localStorage 設定 isSuperuser
+                setIsSuperuser(superadmin === "true"); // 判斷 superadmin 權限
             } else {
                 setIsLoggedIn(false);
             }
@@ -42,7 +42,7 @@ export const Navigation = ({ onLogout }) => {
         }
     };
 
-    const userId = localStorage.getItem("userId");  // 獲取 userId
+    const userId = localStorage.getItem("userId"); // 獲取 userId
 
     return (
         <Navbar bg="light" expand="lg" fixed="top">
@@ -59,9 +59,11 @@ export const Navigation = ({ onLogout }) => {
                                     活動列表
                                 </Nav.Link>
                                 {isSuperuser && (
-                                    <Nav.Link as={Link} to="/create-event">
-                                        創建活動
-                                    </Nav.Link> // 只有超級管理員顯示此按鈕
+                                    <>
+                                        <Nav.Link as={Link} to="/event/create">
+                                            新增活動
+                                        </Nav.Link>
+                                    </>
                                 )}
                                 <Dropdown>
                                     <Dropdown.Toggle variant="light" id="dropdown-user-info">

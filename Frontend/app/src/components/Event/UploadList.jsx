@@ -24,8 +24,8 @@ export const UploadList = () => {
                 const response = await fetch(`${process.env.REACT_APP_API_URL}/api/event/${eventId}/upload/list`);
                 const data = await response.json();
 
-                // 按 created_at 降序排序
-                const sortedUploads = (data.uploads || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                // 按 created_at 降序排序並限制為最近 20 筆
+                const sortedUploads = (data.uploads || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 20);
                 setUploads(sortedUploads);
             } catch (error) {
                 console.error("Error fetching uploads:", error);
@@ -46,7 +46,7 @@ export const UploadList = () => {
 
             {/* 顯示上傳的資料 */}
             <div className="mt-4">
-                <h4>上傳的資料</h4>
+                <h4>上傳的資料 (最近 20 筆)</h4>
                 {uploads.length > 0 ? (
                     <div className="uploads">
                         {uploads.map((upload, index) => (
