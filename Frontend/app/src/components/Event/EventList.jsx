@@ -11,7 +11,7 @@ export const EventList = ({ authToken }) => {
     const formatDate = dateString => {
         const date = new Date(dateString);
         const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0"); // 月份從0開始，需要加1
         const day = String(date.getDate()).padStart(2, "0");
         const hours = String(date.getHours()).padStart(2, "0");
         const minutes = String(date.getMinutes()).padStart(2, "0");
@@ -26,12 +26,15 @@ export const EventList = ({ authToken }) => {
             setError(null);
 
             try {
-                const eventsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/event/all`);
+                const eventsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/event/all`, {
+                    method: "GET",
+                });
 
                 if (!eventsResponse.ok) throw new Error("無法獲取活動列表");
+
                 const eventsData = await eventsResponse.json();
 
-                // 排序活動列表，根據 `end_time` 排序
+                // 排序活動列表，根據 `end_time` 排序（時間較近的排在最上面）
                 const sortedEvents = eventsData.events.sort((a, b) => new Date(b.end_time) - new Date(a.end_time));
                 setEventList(sortedEvents);
             } catch (err) {
@@ -52,11 +55,11 @@ export const EventList = ({ authToken }) => {
             {isLoading ? (
                 <p>資料加載中...</p>
             ) : (
-                <div className="event-list mt-4">
+                <div className="event-list mt-5">
                     <table className="table table-bordered text-center">
                         <thead>
                             <tr>
-                                <th>#</th>
+                                <th>ID</th> {/* 將 # 改為 ID */}
                                 <th>活動名稱</th>
                                 <th>開始時間</th>
                                 <th>結束時間</th>
@@ -65,9 +68,9 @@ export const EventList = ({ authToken }) => {
                         </thead>
                         <tbody>
                             {eventList.length > 0 ? (
-                                eventList.map((event, index) => (
+                                eventList.map(event => (
                                     <tr key={event.id}>
-                                        <td>{index + 1}</td>
+                                        <td>{event.id}</td> {/* 顯示活動的 ID */}
                                         <td>{event.name}</td>
                                         <td>{formatDate(event.start_time)}</td>
                                         <td>{formatDate(event.end_time)}</td>
