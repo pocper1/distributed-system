@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 import base64
 import uuid
 import os
+from sqlalchemy import desc
 from datetime import datetime, timedelta, timezone
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -482,28 +483,24 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
     if not event:
         raise HTTPException(status_code=400, detail="Event not found")
 
-    # 查詢活動中的最高分的20個隊伍
-    top_teams = db.query(Team).join(Score).filter(Team.event_id == event_id).order_by(Score.score.desc()).limit(20).all()
-    if not top_teams:
-        raise HTTPException(
-            status_code=400, detail="No teams found for this event")
+    results = (
+        db.query(Team.id, Team.name, Score.score)
+        .join(Score, Score.team_id == Team.id, isouter=True)  # LEFT JOIN 以確保隊伍沒有分數時也能顯示
+        .filter(Team.event_id == event_id)
+        .order_by(desc(Score.score))  # 根據分數降序排序
+        .all()
+    )
+
+    if not results:
+        raise HTTPException(status_code=400, detail="No teams found for this event")
 
     # 構建排名數據
     rankings = []
-    for team in top_teams:
-        # 計算隊伍人數
-        team_size = db.query(user_teams).filter(
-            user_teams.c.team_id == team.id).count()
-
-        # 查詢隊伍的分數
-        score = db.query(Score).filter(Score.team_id == team.id).first()
-        team_score = score.score if score else 0.0  # 修正為正確的 score 屬性
-
+    for team_id, team_name, score in results:
         rankings.append({
-            "team_id": team.id,
-            "team_name": team.name,
-            "score": team_score,
-            "team_size": team_size
+            "team_id": team_id,
+            "team_name": team_name,
+            "score": score if score is not None else 0.0  # 若分數為 NULL，設為 0.0
         })
 
     return {"rankings": rankings}
