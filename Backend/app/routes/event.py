@@ -17,9 +17,10 @@ from fastapi.responses import JSONResponse
 import base64
 import uuid
 import os
+from datetime import datetime, timedelta, timezone
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-
+from fastapi import Query
 
 from services.score_service import calculate_team_score
 
@@ -84,18 +85,21 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
     """
     Create a new event with start and end times.
     """
-    tz = ZoneInfo("Asia/Taipei")
+    # 計算 UTC+8 的當前時間
+    utc_offset = timedelta(hours=8)
+    current_time = datetime.now(timezone.utc) + utc_offset
 
     if request.start_time >= request.end_time:
         raise HTTPException(
-            status_code=400, detail="Start time must be before end time")
+            status_code=400, detail="Start time must be before end time"
+        )
 
     new_event = Event(
         name=request.name,
         description=request.description,
         start_time=request.start_time,
         end_time=request.end_time,
-        created_at=datetime.now(tz)
+        created_at=current_time  # 使用 UTC+8 時間
     )
     try:
         db.add(new_event)
@@ -106,8 +110,7 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
         print(f"Error: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to create event")
-
-
+        
 @router.post("/api/event/{event_id}/upload", summary="Upload Check-in Data", tags=["Event", "Upload"])
 def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(get_postgresql_connection)):
     """
@@ -332,14 +335,15 @@ async def preflight_check(rest_of_path: str):
         "Access-Control-Allow-Headers": "Authorization, Content-Type",
     }
     return JSONResponse(content={}, headers=headers)
+from datetime import datetime, timedelta, timezone
 
 @router.post("/api/event/{event_id}/team/create", summary="Create Team for Event", tags=["Event", "Team"], response_description="Create team successfully")
 def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends(get_postgresql_connection)):
     """
     Create a new team for a specific event.
     """
-    event = is_event_active(event_id, db)
-    tz = ZoneInfo("Asia/Taipei")
+    # 直接計算 UTC+8 時區的當前時間
+    current_time = datetime.now(timezone.utc) + timedelta(hours=8)
 
     # 1. 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
@@ -360,25 +364,21 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
         name=request.name,
         description=request.description,
         event_id=event_id,
-        created_at=datetime.now(tz)
+        created_at=current_time  # 使用計算的 UTC+8 時間
     )
 
-    # # 4. 將該user 加入 user_teams table.
-    # new_user_team = user_teams.insert().values(
-    #     user_id=request.user_id, 
-    #     team_id=new_team.id
-    # )
-
-    db.add(new_team)
-    # db.add(new_user_team)
-    db.commit()
-    db.refresh(new_team)
+    try:
+        db.add(new_team)
+        db.commit()
+        db.refresh(new_team)
+    except Exception as e:
+        print(f"Error: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to create team")
 
     # 返回成功訊息與隊伍 ID
     return {"message": "Team created successfully", "team_id": new_team.id}
 
-
-from fastapi import Query
 
 @router.get("/api/event/{event_id}/teams", summary="Get Teams for an Event", tags=["Event"], response_description="活動的隊伍列表")
 def get_teams_for_event(
