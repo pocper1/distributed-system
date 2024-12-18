@@ -17,6 +17,9 @@ from fastapi.responses import JSONResponse
 import base64
 import uuid
 import os
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 
 from services.score_service import calculate_team_score
 
@@ -65,6 +68,8 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
     """
     Create a new event with start and end times.
     """
+    tz = ZoneInfo("Asia/Taipei")
+
     if request.start_time >= request.end_time:
         raise HTTPException(
             status_code=400, detail="Start time must be before end time")
@@ -73,7 +78,8 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
         name=request.name,
         description=request.description,
         start_time=request.start_time,
-        end_time=request.end_time
+        end_time=request.end_time,
+        created_at=datetime.now(tz)
     )
     db.add(new_event)
     db.commit()
@@ -207,11 +213,23 @@ def get_event_uploads(event_id: int, db: Session = Depends(get_postgresql_connec
 @router.get("/api/event/all", summary="Get All Events", tags=["Event"], response_description="List of all events")
 def get_events(db: Session = Depends(get_postgresql_connection)):
     """
-    Retrieve all events.
+    Retrieve all events with only the required fields.
     """
-    events = db.query(Event).all()
-    return {"events": [{"id": e.id, "name": e.name, "start_time": e.start_time, "end_time": e.end_time} for e in events]}
+    # 僅選擇需要的欄位，避免讀取不必要的資料
+    events = db.query(Event.id, Event.name, Event.start_time, Event.end_time).all()
 
+    # 格式化結果
+    return {
+        "events": [
+            {
+                "id": event.id,
+                "name": event.name,
+                "start_time": event.start_time,
+                "end_time": event.end_time
+            }
+            for event in events
+        ]
+    }
 
 @router.get("/api/event/{event_id}", summary="Get Event by ID", tags=["Event"], response_description="Details of a specific event")
 def get_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -282,6 +300,8 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
     """
     Create a new team for a specific event.
     """
+    tz = ZoneInfo("Asia/Taipei")
+
     # 1. 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
@@ -300,7 +320,8 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
     new_team = Team(
         name=request.name,
         description=request.description,
-        event_id=event_id
+        event_id=event_id,
+        created_at=datetime.now(tz)
     )
 
     # # 4. 將該user 加入 user_teams table.
@@ -314,50 +335,8 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
     db.commit()
     db.refresh(new_team)
 
-    # 4. 返回成功訊息與隊伍 ID
+    # 返回成功訊息與隊伍 ID
     return {"message": "Team created successfully", "team_id": new_team.id}
-
-
-@router.post("/api/event/{event_id}/teams/join", summary="User Join Team", tags=["Event", "Team"])
-def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get_postgresql_connection)):
-    """
-    User joins a team for a specific event.
-    """
-    # 查找活動
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-
-    # 查找隊伍
-    team = db.query(Team).filter(Team.id == request.team_id).first()
-    if not team or team.event_id != event_id:
-        raise HTTPException(
-            status_code=404, detail="Team not found or not associated with this event"
-        )
-
-    # 查找使用者
-    user = db.query(User).filter(User.id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # 檢查使用者是否已經在隊伍中
-    existing_user_team = db.query(user_teams).filter(
-        user_teams.c.user_id == request.user_id,
-        user_teams.c.team_id == request.team_id
-    ).first()
-
-    if existing_user_team:
-        raise HTTPException(
-            status_code=400, detail="User already in this team"
-        )
-
-    # 將使用者加入隊伍
-    new_user_team = user_teams.insert().values(
-        user_id=request.user_id, team_id=request.team_id)
-    db.execute(new_user_team)
-    db.commit()
-
-    return {"message": "User successfully joined the team for the event"}
 
 
 @router.get("/api/event/{event_id}/teams", summary="Get Teams for an Event", tags=["Event"], response_description="活動的隊伍列表")
@@ -374,13 +353,8 @@ def get_teams_for_event(event_id: int, db: Session = Depends(get_postgresql_conn
     # 查找與該活動相關的隊伍
     teams = db.query(Team).filter(Team.event_id == event_id).all()
 
-    if not teams:
-        raise HTTPException(
-            status_code=404, detail="No teams found for this event")
-
-    # 返回隊伍資料
+    # 如果沒有隊伍，返回空列表
     return {"teams": [{"id": team.id, "name": team.name, "members": team.members} for team in teams]}
-
 
 @router.get("/api/team/{team_id}/members", summary="Get Team Members", tags=["Team"], response_description="團隊成員列表")
 def get_team_members(team_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -403,24 +377,24 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
     """
     User joins a team for a specific event.
     """
-    # 查找活動
+    # 1. 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # 查找隊伍
+    # 2. 查找隊伍
     team = db.query(Team).filter(Team.id == request.team_id).first()
     if not team or team.event_id != event_id:
         raise HTTPException(
             status_code=404, detail="Team not found or not associated with this event"
         )
 
-    # 查找使用者
+    # 3. 查找使用者
     user = db.query(User).filter(User.id == request.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 檢查使用者是否已經在隊伍中
+    # 4. 檢查使用者是否已經在隊伍中
     existing_user_team = db.query(user_teams).filter(
         user_teams.c.user_id == request.user_id,
         user_teams.c.team_id == request.team_id
@@ -431,11 +405,20 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
             status_code=400, detail="User already in this team"
         )
 
-    # 將使用者加入隊伍
-    new_user_team = user_teams.insert().values(
-        user_id=request.user_id, team_id=request.team_id)
-    db.execute(new_user_team)
-    db.commit()
+    # 5. 插入使用者與隊伍的關聯資料
+    try:
+        db.execute(
+            user_teams.insert().values(
+                user_id=request.user_id,
+                team_id=request.team_id
+            )
+        )
+        db.commit()  # 提交資料庫更改
+    except Exception as e:
+        db.rollback()  # 回滾資料庫變更
+        raise HTTPException(
+            status_code=500, detail=f"Database insert failed: {str(e)}"
+        )
 
     return {"message": "User successfully joined the team for the event"}
 
@@ -448,13 +431,13 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
     # 驗證活動是否存在
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=400, detail="Event not found")
 
     # 查詢活動中的隊伍
     teams = db.query(Team).filter(Team.event_id == event_id).all()
     if not teams:
         raise HTTPException(
-            status_code=404, detail="No teams found for this event")
+            status_code=400, detail="No teams found for this event")
 
     # 構建排名數據
     rankings = []

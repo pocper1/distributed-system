@@ -79,7 +79,7 @@ export const LandingPage = () => {
                 <table className="table table-bordered text-center">
                     <thead>
                         <tr>
-                            <th>#</th>
+                            <th>ID</th> {/* 將 # 改為 ID */}
                             <th>活動名稱</th>
                             <th>開始時間</th>
                             <th>結束時間</th>
@@ -88,9 +88,9 @@ export const LandingPage = () => {
                     </thead>
                     <tbody>
                         {eventList.length > 0 ? (
-                            eventList.map((event, index) => (
+                            eventList.map(event => (
                                 <tr key={event.id}>
-                                    <td>{index + 1}</td>
+                                    <td>{event.id}</td> {/* 顯示活動的 ID */}
                                     <td>{event.name}</td>
                                     <td>{formatDate(event.start_time)}</td>
                                     <td>{formatDate(event.end_time)}</td>

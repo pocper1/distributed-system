@@ -76,6 +76,12 @@ export const EventDetail = () => {
 
     const handleJoinTeam = async teamId => {
         const userId = localStorage.getItem("userId");
+        console.log("UserId from localStorage:", userId); // 調試
+
+        if (!userId) {
+            alert("使用者未登入，無法加入隊伍！");
+            return;
+        }
 
         try {
             const response = await fetch(`${process.env.REACT_APP_API_URL}/api/event/${eventId}/teams/join`, {
