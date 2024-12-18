@@ -30,10 +30,6 @@ services:
             - POSTGRES_USER=${POSTGRES_USER}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
             - INSTANCE_CONNECTION_NAME=${INSTANCE_CONNECTION_NAME}
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-        depends_on:
-            - redis
     nginx:
         image: nginx:alpine
         container_name: nginx
@@ -45,16 +41,6 @@ services:
         depends_on:
             - frontend
             - backend
-
-    redis:
-        image: redis:7
-        container_name: redis
-        ports:
-            - "6379:6379"
-        volumes:
-            - redis_data:/data
-        restart: unless-stopped
-
 volumes:
     db-data:
     redis_data:

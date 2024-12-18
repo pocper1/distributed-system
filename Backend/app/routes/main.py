@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 # from google.cloud import bigquery
 from datetime import datetime
-from database import get_postgresql_connection, get_redis_connection
+from database import get_postgresql_connection
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse

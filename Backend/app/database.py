@@ -4,7 +4,6 @@ from google.cloud.sql.connector import Connector, IPTypes
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from redis import Redis
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,9 +13,6 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "postgres")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres_01")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME")
-
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
 # Function to create a Cloud SQL connection using Google Cloud SQL Connector
 
