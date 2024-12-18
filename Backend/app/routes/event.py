@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from fastapi import Query
 from datetime import datetime, timedelta, timezone
+from fastapi.middleware.cors import CORSMiddleware
 
 from services.score_service import calculate_team_score
 
@@ -52,6 +53,22 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 router = APIRouter()
+
+origins = [
+    "https://frontend-service-72785805306.asia-east1.run.app",
+    "frontend-service-72785805306.asia-east1.run.app",
+    "https://backend-service-72785805306.asia-east1.run.app",
+    "backend-service-72785805306.asia-east1.run.app"
+]
+
+router.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 
 def upload_to_gcp(bucket_name: str, file_data: bytes, file_name: str):
