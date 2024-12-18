@@ -496,10 +496,6 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
     # 構建排名數據
     rankings = []
     for team in top_teams:
-        # 計算隊伍人數
-        team_size = db.query(user_teams).filter(
-            user_teams.c.team_id == team.id).count()
-
         # 查詢隊伍的分數
         score = db.query(Score).filter(Score.team_id == team.id).first()
         team_score = score.score if score else 0.0  # 修正為正確的 score 屬性
@@ -508,7 +504,6 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
             "team_id": team.id,
             "team_name": team.name,
             "score": team_score,
-            "team_size": team_size
         })
 
     return {"rankings": rankings}
