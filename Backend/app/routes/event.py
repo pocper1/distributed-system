@@ -59,6 +59,22 @@ def upload_to_gcp(bucket_name: str, file_data: bytes, file_name: str):
     blob.upload_from_string(file_data, content_type="image/png")
     return f"https://storage.googleapis.com/{bucket_name}/{file_name}"
 
+def is_event_active(event_id: int, db: Session):
+    """
+    檢查活動是否存在，並判斷是否在活動的時間範圍內。
+    """
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    current_time = datetime.now(timezone.utc)
+
+    if current_time < event.start_time:
+        raise HTTPException(status_code=400, detail="The event has not started yet")
+    if current_time > event.end_time:
+        raise HTTPException(status_code=400, detail="The event has already ended")
+
+    return event
 
 # ------------------ Event Routes ------------------
 
@@ -92,6 +108,8 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
     """
     Upload check-in data for all teams the user belongs to in a specific event.
     """
+    event = is_event_active(event_id, db)
+    
     # 1. 驗證活動是否存在
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
@@ -300,11 +318,21 @@ def user_checkin(event_id: int, request: UserCheckinRequest, db: Session = Depen
 
 
 # ------------------ Team Routes ------------------
+@router.options("/{rest_of_path:path}")
+async def preflight_check(rest_of_path: str):
+    headers = {
+        "Access-Control-Allow-Origin": "https://frontend-service-72785805306.asia-east1.run.app",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    }
+    return JSONResponse(content={}, headers=headers)
+
 @router.post("/api/event/{event_id}/team/create", summary="Create Team for Event", tags=["Event", "Team"], response_description="Create team successfully")
 def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends(get_postgresql_connection)):
     """
     Create a new team for a specific event.
     """
+    event = is_event_active(event_id, db)
     tz = ZoneInfo("Asia/Taipei")
 
     # 1. 查找活動
@@ -344,22 +372,38 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
     return {"message": "Team created successfully", "team_id": new_team.id}
 
 
+from fastapi import Query
+
 @router.get("/api/event/{event_id}/teams", summary="Get Teams for an Event", tags=["Event"], response_description="活動的隊伍列表")
-def get_teams_for_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
+def get_teams_for_event(
+    event_id: int,
+    page: int = Query(1, ge=1),  # 默認第 1 頁
+    page_size: int = Query(10, ge=1, le=100),  # 每頁大小，限制為 1-100
+    db: Session = Depends(get_postgresql_connection)
+):
     """
-    Get all teams for a specific event.
+    Get all teams for a specific event with pagination.
     """
     # 查找該活動
     event = db.query(Event).filter(Event.id == event_id).first()
-
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # 查找與該活動相關的隊伍
-    teams = db.query(Team).filter(Team.event_id == event_id).all()
+    # 計算偏移量
+    offset = (page - 1) * page_size
 
-    # 如果沒有隊伍，返回空列表
-    return {"teams": [{"id": team.id, "name": team.name, "members": team.members} for team in teams]}
+    # 查詢隊伍數據，加入分頁
+    teams = db.query(Team).filter(Team.event_id == event_id).offset(offset).limit(page_size).all()
+
+    # 查詢總數量以供前端顯示分頁
+    total_teams = db.query(Team).filter(Team.event_id == event_id).count()
+
+    return {
+        "total_teams": total_teams,
+        "page": page,
+        "page_size": page_size,
+        "teams": [{"id": team.id, "name": team.name, "members": team.members} for team in teams]
+    }
 
 @router.get("/api/team/{team_id}/members", summary="Get Team Members", tags=["Team"], response_description="團隊成員列表")
 def get_team_members(team_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -382,6 +426,8 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
     """
     User joins a team for a specific event.
     """
+    event = is_event_active(event_id, db)
+
     # 1. 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:

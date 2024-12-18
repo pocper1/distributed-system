@@ -69,6 +69,13 @@ export const EventDetail = () => {
         fetchUserTeams();
     }, [eventId]); // 當 eventId 改變時重新發送請求
 
+    const isEventActive = () => {
+        if (!event) return false;
+        const startTime = new Date(event.start_time);
+        const endTime = new Date(event.end_time);
+        return currentTime >= startTime && currentTime <= endTime;
+    };
+
     // 檢查使用者是否已經在這個隊伍
     const isUserInTeam = teamId => {
         return userTeams.some(team => team.id === teamId);
@@ -135,21 +142,12 @@ export const EventDetail = () => {
             </div>
 
             <div className="mt-4">
-                <div className="mb-3">
-                    <button className="btn btn-success" onClick={() => navigate(`/event/${eventId}/team/create`)}>
-                        新增隊伍
-                    </button>
-                </div>
-                <div className="mb-3">
-                    <button className="btn btn-success" onClick={() => navigate(`/event/${eventId}/uploadList`)}>
-                        留言列表
-                    </button>
-                </div>
-                <div className="mb-3">
-                    <button className="btn btn-warning" onClick={() => navigate(`/event/${eventId}/upload`)}>
-                        上傳資料
-                    </button>
-                </div>
+                <button className="btn btn-success" onClick={() => navigate(`/event/${eventId}/team/create`)} disabled={!isEventActive()}>
+                    新增隊伍
+                </button>
+                <button className="btn btn-warning" onClick={() => navigate(`/event/${eventId}/upload`)} disabled={!isEventActive()}>
+                    上傳資料
+                </button>
             </div>
 
             <div className="mt-4">
@@ -176,7 +174,11 @@ export const EventDetail = () => {
                                         {isUserInTeam(team.id) ? (
                                             <span className="text-success">已加入</span>
                                         ) : (
-                                            <button className="btn btn-primary btn-sm" onClick={() => handleJoinTeam(team.id)}>
+                                            <button
+                                                className="btn btn-primary btn-sm"
+                                                onClick={() => handleJoinTeam(team.id)}
+                                                disabled={!isEventActive()} // 禁用按鈕，若活動不在時間範圍內
+                                            >
                                                 加入隊伍
                                             </button>
                                         )}
