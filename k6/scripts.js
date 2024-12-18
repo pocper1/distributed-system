@@ -1,5 +1,6 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
+import { b64encode } from "k6/encoding";
 
 // 配置選項
 export let options = {
@@ -7,14 +8,14 @@ export let options = {
     scenarios: {
         stress_test: {
             executor: "ramping-arrival-rate",
-            startRate: 1000,
+            startRate: 1,
             timeUnit: "1s",
-            preAllocatedVUs: 2000,
-            maxVUs: 5000,
+            preAllocatedVUs: 50,
+            maxVUs: 200,
             stages: [
-                { target: 2000, duration: "1m" },
-                { target: 5000, duration: "1m" },
-                { target: 10000, duration: "1m" },
+                { target: 10, duration: "15s" },
+                { target: 50, duration: "30s" },
+                { target: 100, duration: "60s" },
             ],
         },
     },
@@ -23,10 +24,11 @@ export let options = {
     },
 };
 
-const BASE_URL = "http://localhost:8000/api";
+const BASE_URL = "http://35.221.167.88/api";
 
 // 固定範圍的用戶 ID
-const USER_IDS = Array.from({ length: 20 }, (_, i) => i + 86); // 用戶 ID 為 86 到 103
+const user_start = 409;
+const USER_IDS = Array.from({ length: 20 }, (_, i) => i + user_start); // 20 users
 
 export function setup() {
     // 創建用戶
@@ -90,72 +92,60 @@ export function setup() {
 export default function (data) {
     const eventId = data.eventId;
 
-    // 隨機選擇一個用戶
-    const userId = USER_IDS[Math.floor(Math.random() * USER_IDS.length)];
+    // 建立隊伍
+    const TEAMS_TO_CREATE = 20;
 
-    // 創建隊伍
-    let createTeamRes = http.post(
-        `${BASE_URL}/event/${eventId}/team/create`,
-        JSON.stringify({
-            name: `Team_${Math.random().toString(36).substring(7)}`,
-            description: "Test Team",
-        }),
-        {
-            headers: { "Content-Type": "application/json" },
+    for (let i = 0; i < TEAMS_TO_CREATE; i++) {
+        let createTeamRes = http.post(
+            `${BASE_URL}/event/${eventId}/team/create`,
+            JSON.stringify({
+                name: `Team_${Math.random().toString(36).substring(7)}`,
+                description: "Test Team",
+            }),
+            {
+                headers: { "Content-Type": "application/json" },
+            }
+        );
+
+        check(createTeamRes, {
+            "Team created successfully": res => res.status === 200,
+        });
+
+        const createdTeamId = createTeamRes.json("team_id");
+        if (!createdTeamId) {
+            throw new Error("Failed to create team: Team ID not returned.");
         }
-    );
 
-    check(createTeamRes, {
-        "Team created successfully": res => res.status === 200,
-    });
+        console.log(`Team created successfully with ID: ${createdTeamId}`);
 
-    const createdTeamId = createTeamRes.json("team_id");
-    if (!createdTeamId) {
-        throw new Error("Failed to create team: Team ID not returned.");
+        // 上傳多筆檢錄
+        const UPLOAD_COUNT = 5; // 每個隊伍上傳 5 次
+
+        for (let j = 0; j < UPLOAD_COUNT; j++) {
+            const userId = USER_IDS[Math.floor(Math.random() * USER_IDS.length)];
+
+            const dummyPhoto = b64encode("dummy image data"); // 模擬 Base64 照片數據
+            let uploadRes = http.post(
+                `${BASE_URL}/event/${eventId}/upload`,
+                JSON.stringify({
+                    user_id: userId,
+                    comment: `Check-in comment ${j + 1} for Team ${createdTeamId}`,
+                    photo: dummyPhoto,
+                }),
+                {
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
+
+            check(uploadRes, {
+                "Photo uploaded successfully": res => res.status === 200,
+            });
+
+            console.log(
+                `Upload ${j + 1} completed for User ${userId} in Team ${createdTeamId}`
+            );
+
+            sleep(1); // 模擬上傳完成後的等待時間
+        }
     }
-
-    console.log(`Team created successfully with ID: ${createdTeamId}`);
-
-    sleep(1); // 模擬創建隊伍後的等待時間
-
-    // 加入隊伍
-    let joinTeamRes = http.post(
-        `${BASE_URL}/event/${eventId}/teams/join`,
-        JSON.stringify({
-            user_id: userId,
-            team_id: createdTeamId,
-        }),
-        {
-            headers: { "Content-Type": "application/json" },
-        }
-    );
-
-    check(joinTeamRes, {
-        "User joined team successfully": res => res.status === 200,
-    });
-
-    console.log(`User ${userId} joined Team ${createdTeamId}`);
-
-    sleep(1); // 模擬用戶加入隊伍後的等待時間
-
-    // 上傳照片到活動
-    const dummyPhoto = Buffer.from("dummy image data").toString("base64"); // 模擬 Base64 照片數據
-    let uploadRes = http.post(
-        `${BASE_URL}/event/${eventId}/upload`,
-        JSON.stringify({
-            user_id: userId,
-            comment: `Check-in comment for Team ${createdTeamId}`,
-            photo: dummyPhoto,
-        }),
-        {
-            headers: { "Content-Type": "application/json" },
-        }
-    );
-
-    check(uploadRes, {
-        "Photo uploaded successfully": res => res.status === 200,
-    });
-
-    console.log(`Photo uploaded successfully for User ${userId} in Event ${eventId}`);
-    sleep(1); // 模擬上傳完成後的等待時間
 }

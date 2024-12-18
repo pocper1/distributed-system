@@ -216,7 +216,12 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
     Retrieve all events with only the required fields.
     """
     # 僅選擇需要的欄位，避免讀取不必要的資料
-    events = db.query(Event.id, Event.name, Event.start_time, Event.end_time).all()
+    events = (
+        db.query(Event.id, Event.name, Event.start_time, Event.end_time)
+        .order_by(Event.end_time.asc())  # 按 end_time 升序排序
+        .limit(10)  # 限制返回的筆數為 10
+        .all()
+    )
 
     # 格式化結果
     return {
@@ -407,21 +412,24 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
 
     # 5. 插入使用者與隊伍的關聯資料
     try:
-        db.execute(
-            user_teams.insert().values(
-                user_id=request.user_id,
-                team_id=request.team_id
-            )
+        insert_statement = user_teams.insert().values(
+            user_id=request.user_id,
+            team_id=request.team_id
         )
+        print(f"Executing SQL: {insert_statement}")  # 調試用
+        db.execute(insert_statement)  # 插入資料到 user_teams 表
         db.commit()  # 提交資料庫更改
+
+        print(f"User {request.user_id} successfully joined Team {request.team_id}")
+
     except Exception as e:
+        print(f"Database Error: {str(e)}")  # 調試用
         db.rollback()  # 回滾資料庫變更
         raise HTTPException(
             status_code=500, detail=f"Database insert failed: {str(e)}"
         )
 
     return {"message": "User successfully joined the team for the event"}
-
 
 @router.get("/api/event/{event_id}/ranking", summary="Get Event Rankings", tags=["Event", "Ranking"])
 def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connection)):
