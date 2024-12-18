@@ -18,6 +18,8 @@ import base64
 import uuid
 import os
 
+from services.score_service import calculate_team_score
+
 from models import (
     User,
     Team,
@@ -112,6 +114,9 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
             raise HTTPException(
                 status_code=500, detail=f"Failed to upload photo: {str(e)}")
 
+    if not request.comment:
+        request.comment = "zxc"
+
     # 4. Create check-in records for all teams
     created_checkins = []
     for team in user_teams_query:
@@ -134,8 +139,25 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
                 "created_at": request.created_at
             })
 
+            # 計算分數
+            new_score = calculate_team_score(team.id, db)
+            
+            # 儲存新的分數到 PostgreSQL
+            score_entry = db.query(Score).filter(Score.team_id == team.id).first()
+            if score_entry:
+                # 如果已有紀錄，則更新分數
+                score_entry.score = new_score
+                score_entry.updated_at = datetime.utcnow()
+            else:
+                # 如果沒有紀錄，則新增
+                new_score_entry = Score(team_id=team.id, score=new_score)
+                db.add(new_score_entry)
+
+            db.commit()
+
         except Exception as e:
             print("Database Error:", str(e))
+            db.rollback()
             raise HTTPException(
                 status_code=500, detail=f"Database insert failed: {str(e)}")
 
@@ -280,7 +302,15 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
         description=request.description,
         event_id=event_id
     )
+
+    # # 4. 將該user 加入 user_teams table.
+    # new_user_team = user_teams.insert().values(
+    #     user_id=request.user_id, 
+    #     team_id=new_team.id
+    # )
+
     db.add(new_team)
+    # db.add(new_user_team)
     db.commit()
     db.refresh(new_team)
 
