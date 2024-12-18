@@ -29,12 +29,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+origins = [
+    "https://frontend-service-72785805306.asia-east1.run.app",
+    "https://backend-service-72785805306.asia-east1.run.app"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://backend-service-72785805306.asia-east1.run.app", "*"],
-    allow_methods=["*"],  # 允許所有 HTTP 方法
-    allow_headers=["*"],  # 允許所有 Headers
-    max_age=86400 
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
