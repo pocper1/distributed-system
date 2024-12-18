@@ -23,7 +23,7 @@ spec:
             - name: NODE_ENV
               value: production
             - name: REACT_APP_API_URL
-              value: "http://34.80.140.244/api"
+              value: "http://backend-service/api"
 ---
 apiVersion: v1
 kind: Service
