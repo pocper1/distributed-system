@@ -38,7 +38,7 @@ export const CreateTeam = () => {
                 setTeamDescription("");
 
                 // 自動導向到 /event/${eventId}
-                navigate("/event/${eventId}");
+                navigate(`/event/${eventId}`);
             } else {
                 const data = await response.json();
                 alert(`創建失敗: ${data.detail || "請稍後再試！"}`);

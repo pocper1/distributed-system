@@ -19,6 +19,8 @@ REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
 # Function to create a Cloud SQL connection using Google Cloud SQL Connector
+
+
 def getconn():
     """
     Create a Cloud SQL connection using Cloud SQL Connector.
@@ -30,16 +32,25 @@ def getconn():
         user=POSTGRES_USER,
         password=POSTGRES_PASSWORD,
         db=POSTGRES_DB,
-        ip_type=IPTypes.PUBLIC  # Use PUBLIC for external access; PRIVATE for VPC
+        ip_type=IPTypes.PUBLIC  # Use PUBLIC fƒor external access; PRIVATE for VPC
     )
     return conn
 
+
 # SQLAlchemy Configuration
 Base = declarative_base()
-engine = sqlalchemy.create_engine("postgresql+pg8000://", creator=getconn)
+engine = sqlalchemy.create_engine("postgresql+pg8000://",
+                                  creator=getconn,
+                                  pool_size=20,        # 增加核心連接池大小
+                                  max_overflow=30,     # 增加額外溢出連接
+                                  pool_timeout=60,     # 連接等待超時時間
+                                  pool_recycle=1800,   # 重複使用連接的時間間隔
+                                  )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Dependency function for PostgreSQL session
+
+
 def get_postgresql_connection():
     """
     Yield a database session for FastAPI dependency injection.
@@ -64,7 +75,8 @@ def get_redis_connection():
     Initialize Redis connection.
     """
     try:
-        redis_conn = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        redis_conn = Redis(host=REDIS_HOST, port=REDIS_PORT,
+                           decode_responses=True)
         redis_conn.ping()  # 測試 Redis 連線
         print(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
         return redis_conn
