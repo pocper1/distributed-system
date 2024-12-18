@@ -13,9 +13,9 @@ export let options = {
             preAllocatedVUs: 50,
             maxVUs: 200,
             stages: [
-                { target: 10, duration: "15s" },
-                { target: 50, duration: "30s" },
-                { target: 100, duration: "60s" },
+                { target: 100, duration: "1m" },
+                { target: 250, duration: "30s" },
+                { target: 500, duration: "60s" },
             ],
         },
     },
@@ -24,10 +24,10 @@ export let options = {
     },
 };
 
-const BASE_URL = "http://35.221.167.88/api";
+const BASE_URL = "https://backend-service-72785805306.asia-east1.run.app/api";
 
 // 固定範圍的用戶 ID
-const user_start = 409;
+const user_start = 429;
 const USER_IDS = Array.from({ length: 20 }, (_, i) => i + user_start); // 20 users
 
 export function setup() {

@@ -8,24 +8,26 @@ WORKDIR /app
 COPY app/package*.json /app
 RUN npm install
 
-ARG REACT_APP_API_URL
-ENV REACT_APP_API_URL=${REACT_APP_API_URL}
-
 # Build the React application for production
 COPY app/public /app/public/
 COPY app/src /app/src/
 COPY app/.env /app/
 RUN npm run build
 
+# Stage 2: Serve the built React application
+FROM node:16
 
-# Stage 2: Serve the built files using Nginx
-FROM nginx:alpine
+# Set the working directory inside the container
+WORKDIR /app
 
-# Copy the built files from the previous stage to the Nginx default directory
-COPY --from=build /app/build /usr/share/nginx/html
+# Copy the built files from the previous stage
+COPY --from=build /app/build ./build
 
-# Expose the default Nginx HTTP port
-EXPOSE 80
+# Install 'serve' to serve the static files
+RUN npm install -g serve
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Expose the default React port
+EXPOSE 8080
+
+# Set the CMD to serve the build directory dynamically using the PORT environment variable
+CMD ["serve", "-s", "-l", "8080", "./build"]
