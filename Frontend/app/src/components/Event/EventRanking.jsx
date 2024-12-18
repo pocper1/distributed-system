@@ -45,7 +45,6 @@ export const EventRanking = () => {
                                 <th>排名</th>
                                 <th>隊伍名稱</th>
                                 <th>分數</th>
-                                <th>隊伍人數</th> {/* 新增隊伍人數欄位 */}
                             </tr>
                         </thead>
                         <tbody>
