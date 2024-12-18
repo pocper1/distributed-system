@@ -161,7 +161,6 @@ export const EventDetail = () => {
                             <th>#</th>
                             <th>隊伍名稱</th>
                             <th>隊伍成員數</th>
-                            <th>隊伍成員</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -172,10 +171,6 @@ export const EventDetail = () => {
                                     <td>{index + 1}</td>
                                     <td>{team.name}</td>
                                     <td>{team.members.length}</td>
-                                    <td>
-                                        {/* 顯示隊伍成員 */}
-                                        {team.members.length > 0 ? team.members.map((member, idx) => <div key={idx}>{member.username}</div>) : <span>尚未加入成員</span>}
-                                    </td>
                                     <td>
                                         {/* 判斷使用者是否已加入隊伍 */}
                                         {isUserInTeam(team.id) ? (
@@ -190,7 +185,7 @@ export const EventDetail = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="5">目前沒有隊伍報名</td>
+                                <td colSpan="4">目前沒有隊伍報名</td>
                             </tr>
                         )}
                     </tbody>
