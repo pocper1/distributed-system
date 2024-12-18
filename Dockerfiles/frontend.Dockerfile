@@ -8,11 +8,15 @@ WORKDIR /app
 COPY app/package*.json /app
 RUN npm install
 
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+
 # Build the React application for production
 COPY app/public /app/public/
 COPY app/src /app/src/
 COPY app/.env /app/
 RUN npm run build
+
 
 # Stage 2: Serve the built files using Nginx
 FROM nginx:alpine

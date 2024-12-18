@@ -41,11 +41,6 @@ spec:
               value: 127.0.0.1
             - name: INSTANCE_CONNECTION_NAME
               value: vivid-reality-443509-d4:us-central1:postgres
-            # Redis 配置
-            - name: REDIS_HOST
-              value: redis
-            - name: REDIS_PORT
-              value: "6379"
           volumeMounts:
             - name: cloudsql-proxy-socket
               mountPath: /cloudsql
