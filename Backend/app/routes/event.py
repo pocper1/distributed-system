@@ -119,44 +119,58 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
     """
     Upload check-in data for all teams the user belongs to in a specific event.
     """
-    event = is_event_active(event_id, db)
+    try:
+        # 檢查活動是否有效
+        event = is_event_active(event_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-    # 1. 驗證活動是否存在
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-
-    # 2. 查詢使用者所屬的所有隊伍 (在指定活動內)
+    # 查詢使用者所屬的所有隊伍 (在指定活動內)
     user_teams_query = db.query(Team).join(user_teams).filter(
-        user_teams.c.user_id == request.user_id,  # 使用 user_id
-        Team.event_id == event_id  # 確保隊伍屬於該活動
+        user_teams.c.user_id == request.user_id,
+        Team.event_id == event_id
     ).all()
+
     print("User Teams:", user_teams_query)
     if not user_teams_query:
         raise HTTPException(
-            status_code=404, detail="User does not belong to any teams in this event")
+            status_code=404,
+            detail="The user does not belong to any teams in this event. Please check if the user is properly assigned."
+        )
 
-    # 3. 上傳照片到 GCP Cloud Storage
+    # 上傳照片到 GCP Cloud Storage
     photo_url = None
     if request.photo:
         try:
             bucket_name = os.environ.get("GCP_BUCKET_NAME")
+            if not bucket_name:
+                raise EnvironmentError("Environment variable 'GCP_BUCKET_NAME' is not set.")
+            
             file_data = base64.b64decode(request.photo)
             file_name = f"checkin_photos/{uuid.uuid4()}.png"
             photo_url = upload_to_gcp(bucket_name, file_data, file_name)
             print("Photo URL:", photo_url)
+        except base64.binascii.Error as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid photo format: {str(e)}. Please ensure the photo is properly encoded in Base64."
+            )
+        except EnvironmentError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Environment configuration error: {str(e)}"
+            )
         except Exception as e:
             raise HTTPException(
-                status_code=500, detail=f"Failed to upload photo: {str(e)}")
+                status_code=500,
+                detail=f"Failed to upload photo to GCP Cloud Storage: {str(e)}"
+            )
 
-    if not request.comment:
-        request.comment = "zxc"
-
-    # 4. Create check-in records for all teams
+    # 建立 Check-in 記錄
     created_checkins = []
     for team in user_teams_query:
         new_checkin = Checkin(
-            user_id=request.user_id,  # Assign user_id here
+            user_id=request.user_id,
             team_id=team.id,
             content=request.comment,
             created_at=request.created_at,
@@ -177,31 +191,31 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
             # 計算分數
             new_score = calculate_team_score(team.id, db)
 
-            # 儲存新的分數到 PostgreSQL
+            # 儲存分數到 PostgreSQL
             score_entry = db.query(Score).filter(
                 Score.team_id == team.id).first()
             if score_entry:
-                # 如果已有紀錄，則更新分數
                 score_entry.score = new_score
                 score_entry.updated_at = datetime.utcnow()
             else:
-                # 如果沒有紀錄，則新增
                 new_score_entry = Score(team_id=team.id, score=new_score)
                 db.add(new_score_entry)
 
             db.commit()
 
         except Exception as e:
-            print("Database Error:", str(e))
+            print(f"Database Error for team {team.id}: {str(e)}")
             db.rollback()
             raise HTTPException(
-                status_code=500, detail=f"Database insert failed: {str(e)}")
+                status_code=500,
+                detail=f"Database operation failed for team {team.id}: {str(e)}"
+            )
 
+    # 成功回應
     return {
         "message": "Check-in data uploaded successfully for all teams",
         "checkins": created_checkins
     }
-
 
 @router.get("/api/event/{event_id}/upload/list", summary="Get All Uploads for Event", tags=["Event", "Upload"])
 def get_event_uploads(event_id: int, db: Session = Depends(get_postgresql_connection)):
