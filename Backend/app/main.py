@@ -30,10 +30,7 @@ app = FastAPI(
 )
 
 origins = [
-    "https://frontend-service-72785805306.asia-east1.run.app",
-    "frontend-service-72785805306.asia-east1.run.app",
-    "https://backend-service-72785805306.asia-east1.run.app",
-    "backend-service-72785805306.asia-east1.run.app"
+    "https://frontend-service-72785805306.asia-east1.run.app"
 ]
 
 app.add_middleware(
