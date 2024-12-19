@@ -233,7 +233,7 @@ def get_event_uploads(event_id: int, db: Session = Depends(get_postgresql_connec
                 "team_id": upload.team_id,
                 "comment": upload.content,
                 "photo_url": upload.photo_url,
-                "created_at": upload.created_at,
+                "created_at": upload.created_at.astimezone(utc_plus_8).isoformat(),
             }
             for upload in uploads
         ]
@@ -262,7 +262,7 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
                 "name": event.name,
                 "start_time": event.start_time.astimezone(utc_plus_8).isoformat(),
                 "end_time": event.end_time.astimezone(utc_plus_8).isoformat(),
-                "created_at": event.created_at,  # 返回創建時間
+                "created_at": event.created_at.astimezone(utc_plus_8).isoformat(),  # 返回創建時間
             }
             for event in events
         ]
@@ -282,9 +282,9 @@ def get_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
         "id": event.id,
         "name": event.name,
         "description": event.description,  # 可以返回更多的字段
-        "start_time": event.start_time,
-        "end_time": event.end_time,
-        "created_at": event.created_at,  # 返回創建時間
+        "start_time": event.start_time.astimezone(utc_plus_8).isoformat(),
+        "end_time": event.end_time.astimezone(utc_plus_8).isoformat(),
+        "created_at": event.created_at.astimezone(utc_plus_8).isoformat(),  # 返回創建時間
     }
 
 

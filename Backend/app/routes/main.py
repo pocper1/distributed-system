@@ -7,6 +7,7 @@ from database import get_postgresql_connection
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
+from datetime import datetime, timedelta, timezone
 
 from models import (
     User,
@@ -31,6 +32,7 @@ from request.main import (
 # 初始化密碼加密器
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+utc_plus_8 = timezone(timedelta(hours=8))  # 定義 UTC+8 時區
 
 router = APIRouter()
 
@@ -127,7 +129,7 @@ def get_user_info(user_id: int, db: Session = Depends(get_postgresql_connection)
         "username": user.username,
         "email": user.email,
         "is_superadmin": user.is_superadmin,
-        "created_at": user.created_at,
+        "created_at": user.created_at.astimezone(utc_plus_8).isoformat(),
     }
 # ------------------ Score Routes ------------------
 @router.post("/api/score/update")
