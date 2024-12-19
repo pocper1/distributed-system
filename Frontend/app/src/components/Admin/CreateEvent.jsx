@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const CreateEvent = () => {
     const [eventName, setEventName] = useState(""); // 活動名稱
@@ -6,8 +7,9 @@ export const CreateEvent = () => {
     const [startTime, setStartTime] = useState(""); // 活動開始時間
     const [endTime, setEndTime] = useState(""); // 活動結束時間
     const [loading, setLoading] = useState(false); // 處理上傳的狀態
+    const navigate = useNavigate(); // 用於頁面跳轉
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async e => {
         e.preventDefault();
 
         if (!eventName || !eventDescription || !startTime || !endTime) {
@@ -39,10 +41,13 @@ export const CreateEvent = () => {
 
             if (response.ok) {
                 alert("活動創建成功！");
-                setEventName(""); // 清空輸入
+                // 清空表單欄位
+                setEventName("");
                 setEventDescription("");
                 setStartTime("");
                 setEndTime("");
+                // 跳轉到活動列表頁面
+                navigate("/event/list");
             } else {
                 const data = await response.json();
                 alert(`創建失敗: ${data.detail || "請稍後再試！"}`);
@@ -62,53 +67,25 @@ export const CreateEvent = () => {
                 {/* 活動名稱 */}
                 <div className="form-group">
                     <label htmlFor="eventName">活動名稱:</label>
-                    <input
-                        type="text"
-                        id="eventName"
-                        className="form-control"
-                        value={eventName}
-                        onChange={(e) => setEventName(e.target.value)}
-                        required
-                    />
+                    <input type="text" id="eventName" className="form-control" value={eventName} onChange={e => setEventName(e.target.value)} required />
                 </div>
 
                 {/* 活動描述 */}
                 <div className="form-group">
                     <label htmlFor="eventDescription">活動描述:</label>
-                    <textarea
-                        id="eventDescription"
-                        className="form-control"
-                        rows="4"
-                        value={eventDescription}
-                        onChange={(e) => setEventDescription(e.target.value)}
-                        required
-                    ></textarea>
+                    <textarea id="eventDescription" className="form-control" rows="4" value={eventDescription} onChange={e => setEventDescription(e.target.value)} required></textarea>
                 </div>
 
                 {/* 活動開始時間 */}
                 <div className="form-group">
                     <label htmlFor="startTime">活動開始時間:</label>
-                    <input
-                        type="datetime-local"
-                        id="startTime"
-                        className="form-control"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        required
-                    />
+                    <input type="datetime-local" id="startTime" className="form-control" value={startTime} onChange={e => setStartTime(e.target.value)} required />
                 </div>
 
                 {/* 活動結束時間 */}
                 <div className="form-group">
                     <label htmlFor="endTime">活動結束時間:</label>
-                    <input
-                        type="datetime-local"
-                        id="endTime"
-                        className="form-control"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        required
-                    />
+                    <input type="datetime-local" id="endTime" className="form-control" value={endTime} onChange={e => setEndTime(e.target.value)} required />
                 </div>
 
                 {/* 提交按鈕 */}

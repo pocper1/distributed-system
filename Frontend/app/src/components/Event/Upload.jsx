@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 export const Upload = () => {
     const { eventId } = useParams(); // 從 URL 取得 eventId
     const [comment, setComment] = useState("");
     const [photo, setPhoto] = useState("");
+    const navigate = useNavigate();
 
     // 處理圖片選擇
     const handlePhotoChange = e => {
@@ -28,24 +29,25 @@ export const Upload = () => {
 
         const payload = {
             user_id: userId, // 傳送使用者 ID 給後端
-            created_at: new Date().toISOString(),
             comment: comment,
             photo: photo, // Base64 編碼圖片
         };
 
         try {
-            const response = await fetch(`/api/event/${eventId}/upload`, {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/event/${eventId}/upload`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify(payload),
             });
+            console.log(response);
 
             if (response.ok) {
                 alert("打卡資料已成功上傳至所有隊伍！");
                 setComment("");
                 setPhoto("");
+                navigate(`/event/${eventId}`); // 上傳成功後跳轉
             } else {
                 alert("打卡資料上傳失敗，請稍後重試！");
             }

@@ -57,7 +57,6 @@ class JoinTeamRequest(BaseModel):
 class UploadRequest(BaseModel):
     user_id: int = Field(...,
                          description="The ID of the user uploading the check-in data")
-    created_at: datetime = Field(..., description="The timestamp of the upload")
     comment: Optional[str] = Field(
         None, max_length=500, description="Optional comment, max length 500 characters")
     photo: Optional[str] = Field(

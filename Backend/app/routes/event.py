@@ -22,6 +22,8 @@ from datetime import datetime, timedelta, timezone
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from fastapi import Query
+from datetime import datetime, timedelta, timezone
+from fastapi.middleware.cors import CORSMiddleware
 
 from services.score_service import calculate_team_score
 
@@ -48,6 +50,7 @@ from request.main import (
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+utc_plus_8 = timezone(timedelta(hours=8))  # 定義 UTC+8 時區
 
 
 router = APIRouter()
@@ -61,22 +64,22 @@ def upload_to_gcp(bucket_name: str, file_data: bytes, file_name: str):
     blob.upload_from_string(file_data, content_type="image/png")
     return f"https://storage.googleapis.com/{bucket_name}/{file_name}"
 
-def is_event_active(event_id: int, db: Session):
-    """
-    檢查活動是否存在，並判斷是否在活動的時間範圍內。
-    """
+
+def is_event_active(event_id, db):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise ValueError("Event not found")
 
-    current_time = datetime.now(timezone.utc)
+    current_time = datetime.now(timezone.utc)  # 確保使用 UTC 時間
+    start_time = event.start_time.astimezone(timezone.utc)
+    end_time = event.end_time.astimezone(timezone.utc)
 
-    if current_time < event.start_time:
-        raise HTTPException(status_code=400, detail="The event has not started yet")
-    if current_time > event.end_time:
-        raise HTTPException(status_code=400, detail="The event has already ended")
+    if current_time < start_time:
+        return False
+    if current_time > end_time:
+        return False
 
-    return event
+    return True
 
 # ------------------ Event Routes ------------------
 
@@ -86,9 +89,7 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
     """
     Create a new event with start and end times.
     """
-    # 計算 UTC+8 的當前時間
-    utc_offset = timedelta(hours=8)
-    current_time = datetime.now(timezone.utc) + utc_offset
+    current_time = datetime.now(timezone.utc)
 
     if request.start_time >= request.end_time:
         raise HTTPException(
@@ -98,8 +99,8 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
     new_event = Event(
         name=request.name,
         description=request.description,
-        start_time=request.start_time,
-        end_time=request.end_time,
+        start_time=request.start_time.astimezone(timezone.utc), 
+        end_time=request.end_time.astimezone(timezone.utc),
         created_at=current_time  # 使用 UTC+8 時間
     )
     try:
@@ -111,53 +112,76 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
         print(f"Error: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to create event")
-        
+
+
 @router.post("/api/event/{event_id}/upload", summary="Upload Check-in Data", tags=["Event", "Upload"])
 def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(get_postgresql_connection)):
     """
     Upload check-in data for all teams the user belongs to in a specific event.
     """
-    event = is_event_active(event_id, db)
+    print("Received upload request for event {event_id} with data: {request}")
+    try:
+        print(f"Received upload request for event {event_id} with data: {request}")
+        event = is_event_active(event_id, db)
+    except ValueError as e:
+        print(f"Event validation failed: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    try:
+        # 檢查活動是否有效
+        is_event_active(event_id, db)  # 直接調用函數
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-    # 1. 驗證活動是否存在
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-
-    # 2. 查詢使用者所屬的所有隊伍 (在指定活動內)
+    # 查詢使用者所屬的所有隊伍 (在指定活動內)
     user_teams_query = db.query(Team).join(user_teams).filter(
-        user_teams.c.user_id == request.user_id,  # 使用 user_id
-        Team.event_id == event_id  # 確保隊伍屬於該活動
+        user_teams.c.user_id == request.user_id,
+        Team.event_id == event_id
     ).all()
+
     print("User Teams:", user_teams_query)
     if not user_teams_query:
         raise HTTPException(
-            status_code=404, detail="User does not belong to any teams in this event")
+            status_code=404,
+            detail="The user does not belong to any teams in this event. Please check if the user is properly assigned."
+        )
 
-    # 3. 上傳照片到 GCP Cloud Storage
+    # 上傳照片到 GCP Cloud Storage
     photo_url = None
     if request.photo:
         try:
             bucket_name = os.environ.get("GCP_BUCKET_NAME")
+            if not bucket_name:
+                raise EnvironmentError("Environment variable 'GCP_BUCKET_NAME' is not set.")
+            
             file_data = base64.b64decode(request.photo)
             file_name = f"checkin_photos/{uuid.uuid4()}.png"
             photo_url = upload_to_gcp(bucket_name, file_data, file_name)
             print("Photo URL:", photo_url)
+        except base64.binascii.Error as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid photo format: {str(e)}. Please ensure the photo is properly encoded in Base64."
+            )
+        except EnvironmentError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Environment configuration error: {str(e)}"
+            )
         except Exception as e:
             raise HTTPException(
-                status_code=500, detail=f"Failed to upload photo: {str(e)}")
+                status_code=500,
+                detail=f"Failed to upload photo to GCP Cloud Storage: {str(e)}"
+            )
 
-    if not request.comment:
-        request.comment = "zxc"
-
-    # 4. Create check-in records for all teams
+    # 建立 Check-in 記錄
     created_checkins = []
     for team in user_teams_query:
         new_checkin = Checkin(
-            user_id=request.user_id,  # Assign user_id here
+            user_id=request.user_id,
             team_id=team.id,
             content=request.comment,
-            created_at=request.created_at,
+            created_at=datetime.now(timezone.utc),
             photo_url=photo_url
         )
         try:
@@ -169,36 +193,37 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
                 "team_id": team.id,
                 "checkin_id": new_checkin.id,
                 "photo_url": photo_url,
-                "created_at": request.created_at
+                "created_at": new_checkin.created_at.astimezone(utc_plus_8).isoformat(), 
             })
 
             # 計算分數
             new_score = calculate_team_score(team.id, db)
-            
-            # 儲存新的分數到 PostgreSQL
-            score_entry = db.query(Score).filter(Score.team_id == team.id).first()
+
+            # 儲存分數到 PostgreSQL
+            score_entry = db.query(Score).filter(
+                Score.team_id == team.id).first()
             if score_entry:
-                # 如果已有紀錄，則更新分數
                 score_entry.score = new_score
                 score_entry.updated_at = datetime.utcnow()
             else:
-                # 如果沒有紀錄，則新增
                 new_score_entry = Score(team_id=team.id, score=new_score)
                 db.add(new_score_entry)
 
             db.commit()
 
         except Exception as e:
-            print("Database Error:", str(e))
+            print(f"Database Error for team {team.id}: {str(e)}")
             db.rollback()
             raise HTTPException(
-                status_code=500, detail=f"Database insert failed: {str(e)}")
+                status_code=500,
+                detail=f"Database operation failed for team {team.id}: {str(e)}"
+            )
 
+    # 成功回應
     return {
         "message": "Check-in data uploaded successfully for all teams",
         "checkins": created_checkins
     }
-
 
 @router.get("/api/event/{event_id}/upload/list", summary="Get All Uploads for Event", tags=["Event", "Upload"])
 def get_event_uploads(event_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -230,7 +255,7 @@ def get_event_uploads(event_id: int, db: Session = Depends(get_postgresql_connec
                 "team_id": upload.team_id,
                 "comment": upload.content,
                 "photo_url": upload.photo_url,
-                "created_at": upload.created_at,
+                "created_at": upload.created_at.astimezone(utc_plus_8).isoformat(),
             }
             for upload in uploads
         ]
@@ -244,7 +269,8 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
     """
     # 按 created_at 降序排序，並限制返回數量
     events = (
-        db.query(Event.id, Event.name, Event.start_time, Event.end_time, Event.created_at)
+        db.query(Event.id, Event.name, Event.start_time,
+                 Event.end_time, Event.created_at)
         .order_by(Event.created_at.desc())  # 按 created_at 降序排序
         .limit(10)  # 限制返回的筆數為 10
         .all()
@@ -256,13 +282,14 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
             {
                 "id": event.id,
                 "name": event.name,
-                "start_time": event.start_time,
-                "end_time": event.end_time,
-                "created_at": event.created_at,  # 返回創建時間
+                "start_time": event.start_time.astimezone(utc_plus_8).isoformat() if event.start_time else None,
+                "end_time": event.end_time.astimezone(utc_plus_8).isoformat() if event.end_time else None,
+                "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,  # 處理空值
             }
             for event in events
         ]
     }
+
 
 @router.get("/api/event/{event_id}", summary="Get Event by ID", tags=["Event"], response_description="Details of a specific event")
 def get_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -277,9 +304,9 @@ def get_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
         "id": event.id,
         "name": event.name,
         "description": event.description,  # 可以返回更多的字段
-        "start_time": event.start_time,
-        "end_time": event.end_time,
-        "created_at": event.created_at,  # 返回創建時間
+        "start_time": event.start_time.astimezone(utc_plus_8).isoformat() if event.start_time else None,
+        "end_time": event.end_time.astimezone(utc_plus_8).isoformat() if event.end_time else None,
+        "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,  # 處理空值
     }
 
 
@@ -328,15 +355,6 @@ def user_checkin(event_id: int, request: UserCheckinRequest, db: Session = Depen
 
 
 # ------------------ Team Routes ------------------
-@router.options("/{rest_of_path:path}")
-async def preflight_check(rest_of_path: str):
-    headers = {
-        "Access-Control-Allow-Origin": "https://frontend-service-72785805306.asia-east1.run.app",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    }
-    return JSONResponse(content={}, headers=headers)
-from datetime import datetime, timedelta, timezone
 
 @router.post("/api/event/{event_id}/team/create", summary="Create Team for Event", tags=["Event", "Team"], response_description="Create team successfully")
 def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends(get_postgresql_connection)):
@@ -344,7 +362,7 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
     Create a new team for a specific event.
     """
     # 直接計算 UTC+8 時區的當前時間
-    current_time = datetime.now(timezone.utc) + timedelta(hours=8)
+    current_time = datetime.now(timezone.utc)
 
     # 1. 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
@@ -400,7 +418,8 @@ def get_teams_for_event(
     offset = (page - 1) * page_size
 
     # 查詢隊伍數據，加入分頁
-    teams = db.query(Team).filter(Team.event_id == event_id).offset(offset).limit(page_size).all()
+    teams = db.query(Team).filter(Team.event_id == event_id).offset(
+        offset).limit(page_size).all()
 
     # 查詢總數量以供前端顯示分頁
     total_teams = db.query(Team).filter(Team.event_id == event_id).count()
@@ -411,6 +430,7 @@ def get_teams_for_event(
         "page_size": page_size,
         "teams": [{"id": team.id, "name": team.name, "members": team.members} for team in teams]
     }
+
 
 @router.get("/api/team/{team_id}/members", summary="Get Team Members", tags=["Team"], response_description="團隊成員列表")
 def get_team_members(team_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -430,29 +450,27 @@ def get_team_members(team_id: int, db: Session = Depends(get_postgresql_connecti
 
 @router.post("/api/event/{event_id}/teams/join", summary="User Join Team", tags=["Event", "Team"])
 def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get_postgresql_connection)):
-    """
-    User joins a team for a specific event.
-    """
+    # 驗證活動是否有效
     event = is_event_active(event_id, db)
 
-    # 1. 查找活動
+    # 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # 2. 查找隊伍
+    # 查找隊伍
     team = db.query(Team).filter(Team.id == request.team_id).first()
     if not team or team.event_id != event_id:
         raise HTTPException(
             status_code=404, detail="Team not found or not associated with this event"
         )
 
-    # 3. 查找使用者
+    # 查找用戶
     user = db.query(User).filter(User.id == request.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 4. 檢查使用者是否已經在隊伍中
+    # 檢查用戶是否已加入隊伍
     existing_user_team = db.query(user_teams).filter(
         user_teams.c.user_id == request.user_id,
         user_teams.c.team_id == request.team_id
@@ -463,26 +481,28 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
             status_code=400, detail="User already in this team"
         )
 
-    # 5. 插入使用者與隊伍的關聯資料
+    # 插入用戶與隊伍關聯
     try:
         insert_statement = user_teams.insert().values(
             user_id=request.user_id,
             team_id=request.team_id
         )
         print(f"Executing SQL: {insert_statement}")  # 調試用
-        db.execute(insert_statement)  # 插入資料到 user_teams 表
-        db.commit()  # 提交資料庫更改
+        db.execute(insert_statement)  # 插入數據
+        db.commit()  # 提交數據庫更改
 
-        print(f"User {request.user_id} successfully joined Team {request.team_id}")
+        print(
+            f"User {request.user_id} successfully joined Team {request.team_id}")
 
     except Exception as e:
         print(f"Database Error: {str(e)}")  # 調試用
-        db.rollback()  # 回滾資料庫變更
+        db.rollback()  # 回滾數據庫變更
         raise HTTPException(
             status_code=500, detail=f"Database insert failed: {str(e)}"
         )
 
     return {"message": "User successfully joined the team for the event"}
+
 
 @router.get("/api/event/{event_id}/ranking", summary="Get Event Rankings", tags=["Event", "Ranking"])
 def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connection)):
