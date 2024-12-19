@@ -119,9 +119,17 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
     """
     Upload check-in data for all teams the user belongs to in a specific event.
     """
+    print("Received upload request for event {event_id} with data: {request}")
+    try:
+        print(f"Received upload request for event {event_id} with data: {request}")
+        event = is_event_active(event_id, db)
+    except ValueError as e:
+        print(f"Event validation failed: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    
     try:
         # 檢查活動是否有效
-        event = is_event_active(event_id, db)
+        is_event_active(event_id, db)  # 直接調用函數
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -173,7 +181,7 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
             user_id=request.user_id,
             team_id=team.id,
             content=request.comment,
-            created_at=request.created_at,
+            created_at=datetime.now(timezone.utc),
             photo_url=photo_url
         )
         try:
@@ -185,7 +193,7 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
                 "team_id": team.id,
                 "checkin_id": new_checkin.id,
                 "photo_url": photo_url,
-                "created_at": request.created_at
+                "created_at": new_checkin.created_at.astimezone(utc_plus_8).isoformat(), 
             })
 
             # 計算分數
@@ -274,9 +282,9 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
             {
                 "id": event.id,
                 "name": event.name,
-                "start_time": event.start_time.astimezone(utc_plus_8).isoformat(),
-                "end_time": event.end_time.astimezone(utc_plus_8).isoformat(),
-                "created_at": event.created_at.astimezone(utc_plus_8).isoformat(),  # 返回創建時間
+                "start_time": event.start_time.astimezone(utc_plus_8).isoformat() if event.start_time else None,
+                "end_time": event.end_time.astimezone(utc_plus_8).isoformat() if event.end_time else None,
+                "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,  # 處理空值
             }
             for event in events
         ]
@@ -296,9 +304,9 @@ def get_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
         "id": event.id,
         "name": event.name,
         "description": event.description,  # 可以返回更多的字段
-        "start_time": event.start_time.astimezone(utc_plus_8).isoformat(),
-        "end_time": event.end_time.astimezone(utc_plus_8).isoformat(),
-        "created_at": event.created_at.astimezone(utc_plus_8).isoformat(),  # 返回創建時間
+        "start_time": event.start_time.astimezone(utc_plus_8).isoformat() if event.start_time else None,
+        "end_time": event.end_time.astimezone(utc_plus_8).isoformat() if event.end_time else None,
+        "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,  # 處理空值
     }
 
 
@@ -508,16 +516,14 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
 
     results = (
         db.query(Team.id, Team.name, Score.score)
-        # LEFT JOIN 以確保隊伍沒有分數時也能顯示
-        .join(Score, Score.team_id == Team.id, isouter=True)
+        .join(Score, Score.team_id == Team.id, isouter=True)  # LEFT JOIN 以確保隊伍沒有分數時也能顯示
         .filter(Team.event_id == event_id)
         .order_by(desc(Score.score))  # 根據分數降序排序
         .all()
     )
 
     if not results:
-        raise HTTPException(
-            status_code=400, detail="No teams found for this event")
+        raise HTTPException(status_code=400, detail="No teams found for this event")
 
     # 構建排名數據
     rankings = []
