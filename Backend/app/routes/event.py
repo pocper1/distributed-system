@@ -50,6 +50,7 @@ from request.main import (
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+utc_plus_8 = timezone(timedelta(hours=8))  # 定義 UTC+8 時區
 
 
 router = APIRouter()
@@ -70,9 +71,12 @@ def is_event_active(event_id, db):
         raise ValueError("Event not found")
 
     current_time = datetime.now(timezone.utc)  # 確保使用 UTC 時間
-    if current_time < event.start_time:
+    start_time = event.start_time.astimezone(timezone.utc)
+    end_time = event.end_time.astimezone(timezone.utc)
+
+    if current_time < start_time:
         return False
-    if current_time > event.end_time:
+    if current_time > end_time:
         return False
 
     return True
@@ -95,8 +99,8 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
     new_event = Event(
         name=request.name,
         description=request.description,
-        start_time=request.start_time,
-        end_time=request.end_time,
+        start_time=request.start_time.astimezone(timezone.utc), 
+        end_time=request.end_time.astimezone(timezone.utc),
         created_at=current_time  # 使用 UTC+8 時間
     )
     try:
@@ -256,8 +260,8 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
             {
                 "id": event.id,
                 "name": event.name,
-                "start_time": event.start_time,
-                "end_time": event.end_time,
+                "start_time": event.start_time.astimezone(utc_plus_8).isoformat(),
+                "end_time": event.end_time.astimezone(utc_plus_8).isoformat(),
                 "created_at": event.created_at,  # 返回創建時間
             }
             for event in events
