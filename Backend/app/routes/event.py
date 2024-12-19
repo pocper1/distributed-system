@@ -54,6 +54,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 router = APIRouter()
 
+
 def upload_to_gcp(bucket_name: str, file_data: bytes, file_name: str):
     print("Uploading file to GCP Cloud Storage...")
     storage_client = storage.Client()
@@ -62,22 +63,19 @@ def upload_to_gcp(bucket_name: str, file_data: bytes, file_name: str):
     blob.upload_from_string(file_data, content_type="image/png")
     return f"https://storage.googleapis.com/{bucket_name}/{file_name}"
 
-def is_event_active(event_id: int, db: Session):
-    """
-    檢查活動是否存在，並判斷是否在活動的時間範圍內。
-    """
+
+def is_event_active(event_id, db):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise ValueError("Event not found")
 
-    current_time = datetime.now(timezone.utc)
-
+    current_time = datetime.now(timezone.utc)  # 確保使用 UTC 時間
     if current_time < event.start_time:
-        raise HTTPException(status_code=400, detail="The event has not started yet")
+        return False
     if current_time > event.end_time:
-        raise HTTPException(status_code=400, detail="The event has already ended")
+        return False
 
-    return event
+    return True
 
 # ------------------ Event Routes ------------------
 
@@ -87,9 +85,7 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
     """
     Create a new event with start and end times.
     """
-    # 計算 UTC+8 的當前時間
-    utc_offset = timedelta(hours=8)
-    current_time = datetime.now(timezone.utc) + utc_offset
+    current_time = datetime.now(timezone.utc)
 
     if request.start_time >= request.end_time:
         raise HTTPException(
@@ -112,7 +108,8 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
         print(f"Error: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to create event")
-        
+
+
 @router.post("/api/event/{event_id}/upload", summary="Upload Check-in Data", tags=["Event", "Upload"])
 def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(get_postgresql_connection)):
     """
@@ -175,9 +172,10 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
 
             # 計算分數
             new_score = calculate_team_score(team.id, db)
-            
+
             # 儲存新的分數到 PostgreSQL
-            score_entry = db.query(Score).filter(Score.team_id == team.id).first()
+            score_entry = db.query(Score).filter(
+                Score.team_id == team.id).first()
             if score_entry:
                 # 如果已有紀錄，則更新分數
                 score_entry.score = new_score
@@ -245,7 +243,8 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
     """
     # 按 created_at 降序排序，並限制返回數量
     events = (
-        db.query(Event.id, Event.name, Event.start_time, Event.end_time, Event.created_at)
+        db.query(Event.id, Event.name, Event.start_time,
+                 Event.end_time, Event.created_at)
         .order_by(Event.created_at.desc())  # 按 created_at 降序排序
         .limit(10)  # 限制返回的筆數為 10
         .all()
@@ -264,6 +263,7 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
             for event in events
         ]
     }
+
 
 @router.get("/api/event/{event_id}", summary="Get Event by ID", tags=["Event"], response_description="Details of a specific event")
 def get_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -336,7 +336,7 @@ def create_team(event_id: int, request: CreateTeamRequest, db: Session = Depends
     Create a new team for a specific event.
     """
     # 直接計算 UTC+8 時區的當前時間
-    current_time = datetime.now(timezone.utc) + timedelta(hours=8)
+    current_time = datetime.now(timezone.utc)
 
     # 1. 查找活動
     event = db.query(Event).filter(Event.id == event_id).first()
@@ -392,7 +392,8 @@ def get_teams_for_event(
     offset = (page - 1) * page_size
 
     # 查詢隊伍數據，加入分頁
-    teams = db.query(Team).filter(Team.event_id == event_id).offset(offset).limit(page_size).all()
+    teams = db.query(Team).filter(Team.event_id == event_id).offset(
+        offset).limit(page_size).all()
 
     # 查詢總數量以供前端顯示分頁
     total_teams = db.query(Team).filter(Team.event_id == event_id).count()
@@ -403,6 +404,7 @@ def get_teams_for_event(
         "page_size": page_size,
         "teams": [{"id": team.id, "name": team.name, "members": team.members} for team in teams]
     }
+
 
 @router.get("/api/team/{team_id}/members", summary="Get Team Members", tags=["Team"], response_description="團隊成員列表")
 def get_team_members(team_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -418,6 +420,7 @@ def get_team_members(team_id: int, db: Session = Depends(get_postgresql_connecti
             status_code=404, detail="No members found for this team")
 
     return {"members": [user.username for user in users]}
+
 
 @router.post("/api/event/{event_id}/teams/join", summary="User Join Team", tags=["Event", "Team"])
 def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get_postgresql_connection)):
@@ -462,7 +465,8 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
         db.execute(insert_statement)  # 插入數據
         db.commit()  # 提交數據庫更改
 
-        print(f"User {request.user_id} successfully joined Team {request.team_id}")
+        print(
+            f"User {request.user_id} successfully joined Team {request.team_id}")
 
     except Exception as e:
         print(f"Database Error: {str(e)}")  # 調試用
@@ -472,6 +476,7 @@ def join_team(event_id: int, request: JoinTeamRequest, db: Session = Depends(get
         )
 
     return {"message": "User successfully joined the team for the event"}
+
 
 @router.get("/api/event/{event_id}/ranking", summary="Get Event Rankings", tags=["Event", "Ranking"])
 def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -485,14 +490,16 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
 
     results = (
         db.query(Team.id, Team.name, Score.score)
-        .join(Score, Score.team_id == Team.id, isouter=True)  # LEFT JOIN 以確保隊伍沒有分數時也能顯示
+        # LEFT JOIN 以確保隊伍沒有分數時也能顯示
+        .join(Score, Score.team_id == Team.id, isouter=True)
         .filter(Team.event_id == event_id)
         .order_by(desc(Score.score))  # 根據分數降序排序
         .all()
     )
 
     if not results:
-        raise HTTPException(status_code=400, detail="No teams found for this event")
+        raise HTTPException(
+            status_code=400, detail="No teams found for this event")
 
     # 構建排名數據
     rankings = []
