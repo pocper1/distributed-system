@@ -7,28 +7,35 @@ export const EventRanking = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    const fetchRankings = async () => {
+        setError(null);
+
+        try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/event/${eventId}/ranking`);
+
+            if (!response.ok) throw new Error("無法獲取排名數據");
+            const data = await response.json();
+
+            // 假設後端已排序，直接使用返回的數據
+            setRankingList(data.rankings || []);
+        } catch (err) {
+            console.error("Error fetching rankings:", err.message);
+            setError(err.message);
+        }
+    };
+
     useEffect(() => {
-        const fetchRankings = async () => {
-            setIsLoading(true);
-            setError(null);
+        // 初始加載數據
+        setIsLoading(true);
+        fetchRankings().finally(() => setIsLoading(false));
 
-            try {
-                const response = await fetch(`${process.env.REACT_APP_API_URL}/api/event/${eventId}/ranking`);
+        // 設定定時刷新
+        const intervalId = setInterval(() => {
+            fetchRankings();
+        }, 1000); // 每 1 秒刷新數據
 
-                if (!response.ok) throw new Error("無法獲取排名數據");
-                const data = await response.json();
-
-                // 假設後端已排序，直接使用返回的數據
-                setRankingList(data.rankings || []);
-            } catch (err) {
-                console.error("Error fetching rankings:", err.message);
-                setError(err.message);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchRankings();
+        // 清理定時器，防止內存洩漏
+        return () => clearInterval(intervalId);
     }, [eventId]);
 
     return (
