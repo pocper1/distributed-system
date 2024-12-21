@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 from models import Checkin, Score, Team, user_teams
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
-import aiofiles
 import re
 
 

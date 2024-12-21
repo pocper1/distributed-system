@@ -43,11 +43,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 celery_app = Celery(
     "tasks",
     broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}",
-    backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+    backend=f"db+postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
 # Celery optional configuration
 celery_app.conf.update(
+    result_expires=3600,  
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",

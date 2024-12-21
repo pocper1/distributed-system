@@ -31,14 +31,13 @@ redis_conn: Redis = get_redis_connection()
 
 # ------------------ Utility Functions ------------------
 
-def upload_to_tmp(file_data: bytes, file_name: str) -> str:
+async def upload_to_tmp(file_data: bytes, file_name: str) -> str:
     """
-    Upload the file to local /tmp (dev environment).
+    Asynchronously upload the file to local /tmp (dev environment).
     """
     tmp_path = os.path.join("/tmp", file_name)
-    with open(tmp_path, 'wb') as f:
-        f.write(file_data)
-    # Return the local path or a dev-accessible URL
+    async with aiofiles.open(tmp_path, 'wb') as f:
+        await f.write(file_data)
     return tmp_path
 
 

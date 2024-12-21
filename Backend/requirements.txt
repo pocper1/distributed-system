@@ -27,3 +27,4 @@ python-dotenv==1.0.0
 python-jose==3.3.0
 celery==5.2.0
 aiofiles==0.7.0
+celery[sqlalchemy]
