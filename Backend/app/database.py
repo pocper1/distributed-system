@@ -4,13 +4,13 @@ import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from redis import Redis
+from celery import Celery
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Determine environment
 env = os.getenv('ENV', 'dev')  
-
 
 # PostgreSQL Configuration
 POSTGRES_HOST = os.getenv("POSTGRES_HOST_LOCAL") if env == "dev" else os.getenv("POSTGRES_HOST_REMOTE")
@@ -37,6 +37,18 @@ engine = sqlalchemy.create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Celery Configuration
+celery_app = Celery("tasks", broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
+
+# Celery optional configuration
+celery_app.conf.update(
+    result_backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="Asia/Taipei",
+    enable_utc=True,
+)
 
 # Dependency for PostgreSQL session
 def get_postgresql_connection():
