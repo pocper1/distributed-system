@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 from fastapi import Query
 from datetime import datetime, timedelta, timezone
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import nulls_last
 
 from services.score_service import calculate_team_score
 
@@ -99,7 +100,7 @@ def create_event(request: CreateEventRequest, db: Session = Depends(get_postgres
     new_event = Event(
         name=request.name,
         description=request.description,
-        start_time=request.start_time.astimezone(timezone.utc), 
+        start_time=request.start_time.astimezone(timezone.utc),
         end_time=request.end_time.astimezone(timezone.utc),
         created_at=current_time  # 使用 UTC+8 時間
     )
@@ -121,12 +122,13 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
     """
     print("Received upload request for event {event_id} with data: {request}")
     try:
-        print(f"Received upload request for event {event_id} with data: {request}")
+        print(
+            f"Received upload request for event {event_id} with data: {request}")
         event = is_event_active(event_id, db)
     except ValueError as e:
         print(f"Event validation failed: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
-    
+
     try:
         # 檢查活動是否有效
         is_event_active(event_id, db)  # 直接調用函數
@@ -152,8 +154,9 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
         try:
             bucket_name = os.environ.get("GCP_BUCKET_NAME")
             if not bucket_name:
-                raise EnvironmentError("Environment variable 'GCP_BUCKET_NAME' is not set.")
-            
+                raise EnvironmentError(
+                    "Environment variable 'GCP_BUCKET_NAME' is not set.")
+
             file_data = base64.b64decode(request.photo)
             file_name = f"checkin_photos/{uuid.uuid4()}.png"
             photo_url = upload_to_gcp(bucket_name, file_data, file_name)
@@ -193,7 +196,7 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
                 "team_id": team.id,
                 "checkin_id": new_checkin.id,
                 "photo_url": photo_url,
-                "created_at": new_checkin.created_at.astimezone(utc_plus_8).isoformat(), 
+                "created_at": new_checkin.created_at.astimezone(utc_plus_8).isoformat(),
             })
 
             # 計算分數
@@ -224,6 +227,7 @@ def upload_checkin(event_id: int, request: UploadRequest, db: Session = Depends(
         "message": "Check-in data uploaded successfully for all teams",
         "checkins": created_checkins
     }
+
 
 @router.get("/api/event/{event_id}/upload/list", summary="Get All Uploads for Event", tags=["Event", "Upload"])
 def get_event_uploads(event_id: int, db: Session = Depends(get_postgresql_connection)):
@@ -284,7 +288,8 @@ def get_events(db: Session = Depends(get_postgresql_connection)):
                 "name": event.name,
                 "start_time": event.start_time.astimezone(utc_plus_8).isoformat() if event.start_time else None,
                 "end_time": event.end_time.astimezone(utc_plus_8).isoformat() if event.end_time else None,
-                "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,  # 處理空值
+                # 處理空值
+                "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,
             }
             for event in events
         ]
@@ -306,7 +311,8 @@ def get_event(event_id: int, db: Session = Depends(get_postgresql_connection)):
         "description": event.description,  # 可以返回更多的字段
         "start_time": event.start_time.astimezone(utc_plus_8).isoformat() if event.start_time else None,
         "end_time": event.end_time.astimezone(utc_plus_8).isoformat() if event.end_time else None,
-        "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,  # 處理空值
+        # 處理空值
+        "created_at": event.created_at.astimezone(utc_plus_8).isoformat() if event.created_at else None,
     }
 
 
@@ -516,14 +522,17 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
 
     results = (
         db.query(Team.id, Team.name, Score.score)
-        .join(Score, Score.team_id == Team.id, isouter=True)  # LEFT JOIN 以確保隊伍沒有分數時也能顯示
+        # LEFT JOIN 以確保隊伍沒有分數時也能顯示
+        .join(Score, Score.team_id == Team.id, isouter=True)
         .filter(Team.event_id == event_id)
-        .order_by(desc(Score.score))  # 根據分數降序排序
+        .order_by(nulls_last(Score.score.desc()))  # 根據分數降序排序
+        .limit(20)
         .all()
     )
 
     if not results:
-        raise HTTPException(status_code=400, detail="No teams found for this event")
+        raise HTTPException(
+            status_code=400, detail="No teams found for this event")
 
     # 構建排名數據
     rankings = []
