@@ -515,3 +515,36 @@ def get_event_ranking(event_id: int, db: Session = Depends(get_postgresql_connec
         })
 
     return {"rankings": rankings}
+
+@router.get("/api/team/{team_id}/score", summary="Get Team Score", tags=["Score"])
+def get_team_score(team_id: int):
+    """
+    從 Redis 快取中獲取團隊分數
+    """
+    redis_conn = get_redis_connection()
+    score = redis_conn.get(f"team:{team_id}:score")
+    if score is None:
+        raise HTTPException(status_code=404, detail="Score not available")
+    return {"team_id": team_id, "score": float(score)}
+
+@router.post("/api/score/update")
+def update_score(request: UpdateScoreRequest, db: Session = Depends(get_postgresql_connection)):
+    """
+    Update a team's score.
+    """
+    team = db.query(Team).filter(Team.id == request.team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    score_entry = db.query(Score).filter(
+        Score.team_id == request.team_id).first()
+    if score_entry:
+        score_entry.score = request.value
+        score_entry.updated_at = datetime.utcnow()
+    else:
+        new_score = Score(team_id=request.team_id, score=request.value)
+        db.add(new_score)
+
+    db.commit()
+    return {"message": "Score updated successfully", "team_id": request.team_id, "score": request.value}
+

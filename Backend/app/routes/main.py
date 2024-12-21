@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
-from database import get_postgresql_connection
+from database import get_postgresql_connection, get_redis_connection
 
 from models import Event, Team, User, Checkin, Score, Ranking
 from models.association import user_teams
@@ -23,6 +23,18 @@ def read_root():
     Health check endpoint.
     """
     return {"message": "API is running successfully"}
+
+@router.get("/api/redis/ping", summary="Test Redis Connection", tags=["System"])
+def test_redis_connection():
+    """
+    Test connection to Redis by sending a PING command.
+    """
+    try:
+        redis_conn = get_redis_connection()
+        pong = redis_conn.ping()
+        return {"message": "Redis connection successful", "response": "PONG" if pong else "No response"}
+    except Exception as e:
+        return {"message": "Redis connection failed", "error": str(e)}
 
 
 # ------------------ User Routes ------------------
@@ -109,83 +121,11 @@ def get_user_info(user_id: int, db: Session = Depends(get_postgresql_connection)
         "is_superadmin": user.is_superadmin,
         "created_at": user.created_at.astimezone(utc_plus_8).isoformat(),
     }
-# ------------------ Score Routes ------------------
-@router.post("/api/score/update")
-def update_score(request: UpdateScoreRequest, db: Session = Depends(get_postgresql_connection)):
-    """
-    Update a team's score.
-    """
-    team = db.query(Team).filter(Team.id == request.team_id).first()
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
 
-    score_entry = db.query(Score).filter(
-        Score.team_id == request.team_id).first()
-    if score_entry:
-        score_entry.score = request.value
-        score_entry.updated_at = datetime.utcnow()
-    else:
-        new_score = Score(team_id=request.team_id, score=request.value)
-        db.add(new_score)
-
-    db.commit()
-    return {"message": "Score updated successfully", "team_id": request.team_id, "score": request.value}
-
-@router.get("/api/team/{team_id}/score", summary="Get Team Score", tags=["Score"])
-def get_team_score(team_id: int):
-    """
-    從 Redis 快取中獲取團隊分數
-    """
-    redis_conn = get_redis_connection()
-    score = redis_conn.get(f"team:{team_id}:score")
-    if score is None:
-        raise HTTPException(status_code=404, detail="Score not available")
-    return {"team_id": team_id, "score": float(score)}
-
-@router.get("/api/redis/ping", summary="Test Redis Connection", tags=["System"])
-def test_redis_connection():
-    """
-    Test connection to Redis by sending a PING command.
-    """
-    try:
-        redis_conn = get_redis_connection()
-        pong = redis_conn.ping()
-        return {"message": "Redis connection successful", "response": "PONG" if pong else "No response"}
-    except Exception as e:
-        return {"message": "Redis connection failed", "error": str(e)}
 
 # ------------------ Ranking Routes ------------------
 
-# @router.get("/api/ranking", summary="Get Team Rankings", tags=["Ranking"], response_description="團隊排名列表")
-# def get_ranking(db: Session = Depends(get_postgresql_connection)):
-#     """
-#     Retrieve team rankings from BigQuery.
-#     """
-#     try:
-#         # BigQuery SQL 查詢語句，根據您的 BigQuery 表格結構修改
-#         query = """
-#         SELECT team_id, SUM(score) AS total_score
-#         FROM `your_project_id.your_dataset.scores`
-#         GROUP BY team_id
-#         ORDER BY total_score DESC
-#         LIMIT 20
-#         """
-#         query_job = bq_client.query(query)  # 執行查詢
-#         results = query_job.result()
-
-#         # 將查詢結果轉換成 JSON 格式
-#         rankings = [
-#             {"team_id": row.team_id, "total_score": row.total_score}
-#             for row in results
-#         ]
-#         return {"rankings": rankings}
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=404, detail="BigQuery table or dataset not found.")
-
 @router.post("/admin/reset-db")
 async def reset_db():
-    # 重新創建資料庫邏輯
-    # 例如刪除所有表並重新創建
     await database.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
     return {"message": "Database reset successfully"}
