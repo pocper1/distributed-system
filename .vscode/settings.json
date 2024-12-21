@@ -1,0 +1,15 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "34.58.202.234",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "gcp",
+            "group": "gcp",
+            "database": "postgres",
+            "username": "postgres_01",
+            "password": "123"
+        }
+    ]
+}
