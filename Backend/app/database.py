@@ -3,8 +3,16 @@ from dotenv import load_dotenv
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from redis import Redis
 from celery import Celery
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from typing import AsyncGenerator, Generator
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,26 +32,49 @@ REDIS_HOST = os.getenv("REDIS_HOST_LOCAL") if env == "dev" else os.getenv("REDIS
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))  # Default Redis DB
 
+DATABASE_URL_ASYNC = f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"  
+DATABASE_URL_SYNC = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+
 # SQLAlchemy Configuration
 Base = declarative_base()
 
-# Optimize PostgreSQL Connection Pool
-# Reduced pool_size and max_overflow to prevent excessive connections to Cloud SQL
-engine = sqlalchemy.create_engine(
-    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}",
+# Synchronous Engine and Session
+engine_sync = create_engine(
+    DATABASE_URL_SYNC,
+    echo=True,  # Set to False in production
+)
+
+
+engine_async: AsyncEngine = create_async_engine(
+    DATABASE_URL_ASYNC,
     pool_size=20,        # Adjusted pool size
     max_overflow=10,     # Adjusted overflow
     pool_timeout=30,     # Reduced timeout
     pool_recycle=1800,   # Recycle connections every 30 minutes
+    echo=True,           # Set to False in production
+    future=True
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    bind=engine_async,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False
+)
+
+SessionLocalSync = sessionmaker(
+    bind=engine_sync,
+    autoflush=False,
+    autocommit=False,
+)
 
 # Celery Configuration
 celery_app = Celery(
     "tasks",
     broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}",
-    backend=f"db+postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 )
 
 # Celery optional configuration
@@ -52,20 +83,23 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    timezone="Asia/Taipei",
+    timezone="UTC",
     enable_utc=True,
 )
+celery_app.autodiscover_tasks(['tasks'])
 
-# Dependency for PostgreSQL session
-def get_postgresql_connection():
-    """
-    Yield a database session for FastAPI dependency injection.
-    """
-    db = SessionLocal()
+# Asynchronous dependency for FastAPI
+async def get_postgresql_connection() -> AsyncGenerator[AsyncSession, None]:
+    async with SessionLocal() as session:
+        yield session
+
+# Synchronous dependency for Celery
+def get_synchronous_session() -> Generator[Session, None, None]:
+    session = SessionLocalSync()
     try:
-        yield db
+        yield session
     finally:
-        db.close()
+        session.close()
 
 # Redis Connection
 def get_redis_connection():

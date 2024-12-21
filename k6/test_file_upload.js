@@ -11,15 +11,16 @@ export let options = {
             preAllocatedVUs: 100,
             maxVUs: 500,
             stages: [
-                { target: 100, duration: "2m" },
-                { target: 300, duration: "3m" },
-                { target: 500, duration: "2m" },
+                { target: 100, duration: "1m" },
+                { target: 300, duration: "2m" },
+                { target: 500, duration: "3m" },
             ],
         },
     },
 };
 
 const BASE_URL = "http://localhost/api";
+const HEADERS = { "Content-Type": "application/json" };
 const USERS_COUNT = 1000;
 
 // 初始化階段：創建用戶數組
@@ -50,7 +51,7 @@ export default function (data) {
             file_name: `${user.username}_file.txt`,
             file_content: encodedFile,
         }),
-        { headers: { "Content-Type": "application/json" } }
+        { headers: HEADERS }
     );
 
     check(res, {

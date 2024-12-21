@@ -1,7 +1,7 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 
-// 配置選項
+// Configuration Options
 export let options = {
     setupTimeout: "10m",
     scenarios: {
@@ -9,22 +9,23 @@ export let options = {
             executor: "ramping-arrival-rate",
             startRate: 1,
             timeUnit: "1s",
-            preAllocatedVUs: 50,
-            maxVUs: 200,
+            preAllocatedVUs: 100,
+            maxVUs: 500,
             stages: [
-                { target: 50, duration: "1m" },
-                { target: 100, duration: "2m" },
-                { target: 200, duration: "3m" },
+                { target: 100, duration: "1m" },
+                { target: 300, duration: "2m" },
+                { target: 500, duration: "3m" },
             ],
         },
     },
 };
 
 const BASE_URL = "http://localhost/api";
+const HEADERS = { "Content-Type": "application/json" };
 const USERS_COUNT = 1000;
 const TEAMS_COUNT = 2000;
 
-// 創建用戶
+// Function to create users
 function createUsers() {
     let userIds = [];
     for (let i = 0; i < USERS_COUNT; i++) {
@@ -35,129 +36,184 @@ function createUsers() {
                 password: "password123",
                 email: `user_${i}@example.com`,
             }),
-            { headers: { "Content-Type": "application/json" } }
+            { headers: HEADERS }
         );
 
         const success = check(res, {
-            "User creation status is 200": r => r.status === 200,
+            "Status is 200": (r) => r.status === 200,
         });
 
-        // 如果狀態碼正確，檢查響應內容
         if (success) {
-            const responseBody = res.json();
-            if (responseBody.message === "User registered successfully") {
-                console.log("User created successfully:", responseBody);
-            } else {
-                console.error("Unexpected response:", responseBody);
+            try {
+                const responseBody = res.json();
+                if (responseBody.task_id) {
+                    userIds.push(responseBody.task_id);
+                    console.log(`User registration initiated: Task ID = ${responseBody.task_id}`);
+                } else {
+                    console.error("Unexpected response:", responseBody);
+                }
+            } catch (err) {
+                console.error("JSON parsing failed:", res.body);
             }
         } else {
-            console.error("Request failed:", res.body);
+            console.error("User creation failed:", res.body);
         }
 
-        sleep(0.1); // 模擬延遲
+        sleep(0.1);
     }
     return userIds;
 }
 
-// 創建隊伍並讓用戶加入
+// Function to create teams and let users join
 function createTeamsAndJoinUsers(eventId, userIds) {
     let teamIds = [];
     for (let i = 0; i < TEAMS_COUNT; i++) {
-        // 創建隊伍
         let res = http.post(
             `${BASE_URL}/event/${eventId}/team/create`,
             JSON.stringify({
                 name: `team_${i}`,
                 description: `Team number ${i}`,
             }),
-            { headers: { "Content-Type": "application/json" } }
+            { headers: HEADERS }
         );
 
-        check(res, {
-            "Team created successfully": r => r.status === 200,
+        const success = check(res, {
+            "Team creation status is 200": (r) => r.status === 200,
         });
 
-        let teamId = res.json().team_id;
-        if (teamId) {
-            teamIds.push(teamId);
+        if (success) {
+            try {
+                let teamId = res.json().team_id;
+                if (teamId) {
+                    teamIds.push(teamId);
 
-            // 隨機用戶加入隊伍
-            const randomUserId = userIds[Math.floor(Math.random() * userIds.length)];
-            let joinRes = http.post(`${BASE_URL}/event/${eventId}/team/${teamId}/join`, JSON.stringify({ user_id: randomUserId }), { headers: { "Content-Type": "application/json" } });
+                    const randomUserId = userIds[Math.floor(Math.random() * userIds.length)];
+                    let joinRes = http.post(
+                        `${BASE_URL}/event/${eventId}/team/${teamId}/join`,
+                        JSON.stringify({ user_id: randomUserId }),
+                        { headers: HEADERS }
+                    );
 
-            check(joinRes, {
-                "User joined team successfully": r => r.status === 200,
-            });
+                    check(joinRes, {
+                        "User joined team successfully": (r) => r.status === 200,
+                    });
 
-            console.log(`User ${randomUserId} joined Team ${teamId}`);
+                    console.log(`User ${randomUserId} joined Team ${teamId}`);
+                } else {
+                    console.error(`Failed to create team: ${res.body}`);
+                }
+            } catch (err) {
+                console.error("JSON parsing failed for team creation:", res.body);
+            }
         } else {
-            console.error(`Failed to create team: ${res.body}`);
+            console.error("Team creation failed:", res.body);
         }
 
-        sleep(0.1); // 模擬延遲
+        sleep(0.1);
     }
     return teamIds;
 }
 
-// 初始化階段
+// Setup Phase
 export function setup() {
-    const res = http.post("http://localhost/api/admin/reset-db");
-    check(res, {
-        "Database reset successfully": r => r.status === 200,
-    });
-    console.log("Database reset completed");
+    const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 3600000); // Add one hour
 
-    // 創建活動
+    // Initiate event creation
     let eventRes = http.post(
         `${BASE_URL}/event/create`,
         JSON.stringify({
             name: `Event_${Date.now()}`,
             description: "Test Event",
-            start_time: new Date().toISOString(),
-            end_time: new Date(Date.now() + 3600000).toISOString(),
+            start_time: now.toISOString(), // Ensure ISO format with UTC timezone
+            end_time: oneHourLater.toISOString(),
         }),
-        { headers: { "Content-Type": "application/json" } }
+        { headers: HEADERS }
     );
 
+    console.log(`Event creation response: ${eventRes.body}`);
+
+    // Check if the event creation request was successful
     check(eventRes, {
-        "Event created successfully": r => r.status === 200,
+        "Event creation request succeeded": (r) => r.status === 200,
     });
 
-    let eventId = eventRes.json().event_id;
-    if (!eventId) {
-        throw new Error("Failed to create event.");
+    let taskId;
+    try {
+        const responseBody = eventRes.json();
+        taskId = responseBody.task_id;
+    } catch (err) {
+        throw new Error(`Failed to parse event creation response: ${eventRes.body}`);
     }
 
-    console.log(`Event created with ID: ${eventId}`);
+    if (!taskId) {
+        console.error("Event creation failed. Response body:", eventRes.body);
+        throw new Error("Task ID not returned.");
+    }
 
-    // 創建用戶和隊伍
+    console.log(`Event creation task initiated with Task ID: ${taskId}`);
+
+    // Polling to get the event_id after task completion
+    let eventId = null;
+    const maxRetries = 30; // Maximum number of polling attempts
+    const retryDelay = 2;   // Seconds between retries
+
+    for (let i = 0; i < maxRetries; i++) {
+        sleep(retryDelay); // Wait before polling
+
+        let statusRes = http.get(`${BASE_URL}/event/status/${taskId}`, { headers: HEADERS });
+
+        check(statusRes, {
+            "Status endpoint request succeeded": (r) => r.status === 200,
+        });
+
+        try {
+            const statusBody = statusRes.json();
+            if (statusBody.status === "SUCCESS" && statusBody.result && statusBody.result.event_id) {
+                eventId = statusBody.result.event_id;
+                console.log(`Event created successfully with ID: ${eventId}`);
+                break;
+            } else if (statusBody.status === "FAILURE") {
+                throw new Error(`Task failed with error: ${statusBody.error}`);
+            } else {
+                console.log(`Task status: ${statusBody.status}. Waiting for completion...`);
+            }
+        } catch (err) {
+            console.error(`Error parsing status response: ${statusRes.body}`);
+        }
+    }
+
+    if (!eventId) {
+        throw new Error("Failed to retrieve Event ID after polling.");
+    }
+
+    // Proceed to create users and teams
     const userIds = createUsers();
     const teamIds = createTeamsAndJoinUsers(eventId, userIds);
 
     return { eventId, userIds, teamIds };
 }
 
-// 主函數：模擬執行任務
+// Main Function: Simulate Execution Tasks
 export default function (data) {
     const { eventId, userIds, teamIds } = data;
 
-    // 隨機選擇一個用戶和隊伍進行操作（例如提交數據或其他測試場景）
+    // Randomly select a user and a team to join
     const randomUserId = userIds[Math.floor(Math.random() * userIds.length)];
     const randomTeamId = teamIds[Math.floor(Math.random() * teamIds.length)];
 
-    // 模擬操作，例如用戶提交文件到隊伍
     let res = http.post(
         `${BASE_URL}/event/${eventId}/teams/join`,
         JSON.stringify({
             user_id: randomUserId,
             team_id: randomTeamId,
         }),
-        { headers: { "Content-Type": "application/json" } }
+        { headers: HEADERS }
     );
 
     check(res, {
-        "Submission successful": r => r.status === 200,
+        "Submission successful": (r) => r.status === 200,
     });
 
-    sleep(1); // 模擬延遲
+    sleep(1); // Wait before the next iteration
 }

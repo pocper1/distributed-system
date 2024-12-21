@@ -104,3 +104,4 @@ def get_user_info(user_id: int, db: Session = Depends(get_postgresql_connection)
         "is_superadmin": user.is_superadmin,
         "created_at": user.created_at.astimezone(utc_plus_8).isoformat(),
     }
+
