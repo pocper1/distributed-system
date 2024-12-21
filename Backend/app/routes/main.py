@@ -18,6 +18,7 @@ from request.main import (
     JoinTeamRequest,
     UploadRequest,
 )
+from tasks import register_user_task, create_checkin_records_task
 
 # 加密設定與時區
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -50,25 +51,17 @@ def test_redis_connection():
 
 # ------------------ User Routes ------------------
 
+
 @router.post("/api/user/register", summary="Register User", tags=["User"])
-def register_user(request: RegisterUserRequest, db: Session = Depends(get_postgresql_connection)):
+def register_user(request: RegisterUserRequest):
     """
-    Register a new user.
+    Dispatch a task to register a new user.
     """
-    email_regex = r'^[\w\.-]+@[\w\.-]+\.\w+$'
-    if not re.match(email_regex, request.email):
-        raise HTTPException(status_code=400, detail="Invalid email format")
-
-    existing_user = db.query(User).filter(User.email == request.email).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    hashed_password = pwd_context.hash(request.password)
-    new_user = User(username=request.username, email=request.email, password=hashed_password)
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return {"message": "User registered successfully"}
+    # Dispatch the task to the Celery worker
+    async_result = register_user_task.delay(request.username, request.email, request.password)
+    
+    # Return task ID to track the status
+    return {"message": "User registration initiated", "task_id": async_result.id}
 
 
 @router.post("/api/user/login", summary="User Login", tags=["User"])
@@ -95,19 +88,6 @@ async def logout():
     Notify the frontend to clear localStorage during logout.
     """
     return {"message": "Logout successful"}
-
-
-@router.get("/api/user/{user_id}/teams", summary="Get User Teams", tags=["User"])
-def get_user_teams(user_id: int, db: Session = Depends(get_postgresql_connection)):
-    """
-    Get all teams the user has joined.
-    """
-    teams = db.query(Team).join(user_teams).filter(user_teams.c.user_id == user_id).all()
-    if not teams:
-        return {"teams": [], "message": "No teams found for this user"}
-
-    return {"teams": [{"id": team.id, "name": team.name} for team in teams]}
-
 
 @router.get("/api/user/{user_id}/info", summary="Get User Info", tags=["User"])
 def get_user_info(user_id: int, db: Session = Depends(get_postgresql_connection)):
