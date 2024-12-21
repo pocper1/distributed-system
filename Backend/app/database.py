@@ -10,7 +10,7 @@ from celery import Celery
 load_dotenv()
 
 # Determine environment
-env = os.getenv('ENV', 'dev')  
+env = os.getenv('ENV', 'dev').lower()
 
 # PostgreSQL Configuration
 POSTGRES_HOST = os.getenv("POSTGRES_HOST_LOCAL") if env == "dev" else os.getenv("POSTGRES_HOST_REMOTE")
@@ -22,27 +22,32 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 # Redis Configuration
 REDIS_HOST = os.getenv("REDIS_HOST_LOCAL") if env == "dev" else os.getenv("REDIS_HOST_REMOTE")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_DB = int(os.getenv("REDIS_DB", 0))  # Default Redis DB
 
 # SQLAlchemy Configuration
 Base = declarative_base()
 
-# PostgreSQL Connection
+# Optimize PostgreSQL Connection Pool
+# Reduced pool_size and max_overflow to prevent excessive connections to Cloud SQL
 engine = sqlalchemy.create_engine(
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}",
-    pool_size=200,
-    max_overflow=30,
-    pool_timeout=60,
-    pool_recycle=1800,
+    pool_size=20,        # Adjusted pool size
+    max_overflow=10,     # Adjusted overflow
+    pool_timeout=30,     # Reduced timeout
+    pool_recycle=1800,   # Recycle connections every 30 minutes
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Celery Configuration
-celery_app = Celery("tasks", broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
+celery_app = Celery(
+    "tasks",
+    broker=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}",
+    backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+)
 
 # Celery optional configuration
 celery_app.conf.update(
-    result_backend=f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
@@ -61,21 +66,19 @@ def get_postgresql_connection():
     finally:
         db.close()
 
-
 # Redis Connection
 def get_redis_connection():
     """
-    Initialize Redis connection.
+    Initialize Redis connection based on environment.
     """
     try:
-        redis_conn = Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+        redis_conn = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
         redis_conn.ping()  # Test Redis connection
-        print(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
+        print(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT}, DB: {REDIS_DB}")
         return redis_conn
     except Exception as e:
         print(f"Failed to connect to Redis: {e}")
         raise
-
 
 # Example: Test connections
 if __name__ == "__main__":
