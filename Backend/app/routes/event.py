@@ -1,57 +1,29 @@
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
-from models import Event, Team, User, Checkin, Score
-from models.association import user_teams
-from datetime import datetime
-from database import get_postgresql_connection
-from request.main import CreateEventRequest
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-# from google.cloud import bigquery
-from datetime import datetime
-from database import get_postgresql_connection
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from fastapi.responses import JSONResponse
-import base64
-import uuid
+import re
 import os
-from sqlalchemy import desc
+import uuid
+import base64
 from datetime import datetime, timedelta, timezone
-from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from fastapi import Query
-from datetime import datetime, timedelta, timezone
-from fastapi.middleware.cors import CORSMiddleware
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+from passlib.context import CryptContext
+
+from database import get_postgresql_connection
+from models import Event, Team, User, Checkin, Score, Ranking
+from models.association import user_teams
+from request.main import CreateEventRequest
 from services.score_service import calculate_team_score
 
-from models import (
-    User,
-    Team,
-    Checkin,
-    Score,
-    Ranking,
-    Event
-)
-from models.association import user_teams
-import re
 from google.cloud import storage
-from request.main import (
-    RegisterUserRequest,
-    LoginRequest,
-    CreateTeamRequest,
-    UserCheckinRequest,
-    UpdateScoreRequest,
-    CreateEventRequest,
-    JoinTeamRequest,
-    UploadRequest
-)
+from request.main import RegisterUserRequest, LoginRequest, CreateTeamRequest, UserCheckinRequest, UpdateScoreRequest, CreateEventRequest, JoinTeamRequest, UploadRequest
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-utc_plus_8 = timezone(timedelta(hours=8))  # 定義 UTC+8 時區
-
+utc_plus_8 = timezone(timedelta(hours=8))
 
 router = APIRouter()
 

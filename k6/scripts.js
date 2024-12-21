@@ -24,7 +24,7 @@ export let options = {
     },
 };
 
-const BASE_URL = "https://backend-service-72785805306.asia-east1.run.app/api";
+const BASE_URL = "http://localhost/api"; // backend-url
 
 // 固定範圍的用戶 ID
 const user_start = 549;
@@ -101,6 +101,6 @@ export default function (data) {
 
     console.log(`User ${userId} join attempt for Team ${createdTeamId}: ${joinRes.status}`);
     console.log(`${joinRes.body}`);
-    
+
     sleep(1); // 模擬等待
 }

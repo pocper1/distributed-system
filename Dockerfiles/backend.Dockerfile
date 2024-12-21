@@ -16,11 +16,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 複製應用程式程式碼 (Backend/app)
 COPY app /app
 
-# 複製密鑰檔案
-COPY keys /app/keys
-
-# 複製 .env 檔案
-# COPY .env /app/.env
 
 # 設定環境變數
 ENV GOOGLE_APPLICATION_CREDENTIALS="/app/keys/vivid-reality-443509-d4-fc738fde2b87.json" \

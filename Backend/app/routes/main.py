@@ -1,43 +1,21 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-# from google.cloud import bigquery
-from datetime import datetime
-from database import get_postgresql_connection
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta, timezone
+from database import get_postgresql_connection
 
-from models import (
-    User,
-    Team,
-    Checkin,
-    Score,
-    Ranking,
-    Event
-)
+from models import Event, Team, User, Checkin, Score, Ranking
 from models.association import user_teams
-import re
+from request.main import RegisterUserRequest, LoginRequest, CreateTeamRequest, UserCheckinRequest, UpdateScoreRequest, CreateEventRequest, JoinTeamRequest, UploadRequest
 
-from request.main import (
-    RegisterUserRequest,
-    LoginRequest,
-    CreateTeamRequest,
-    UserCheckinRequest,
-    UpdateScoreRequest,
-    CreateEventRequest
-)
-
-# 初始化密碼加密器
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-utc_plus_8 = timezone(timedelta(hours=8))  # 定義 UTC+8 時區
+utc_plus_8 = timezone(timedelta(hours=8))
 
 router = APIRouter()
 
 # ------------------ Health Check ------------------
-
 
 @router.get("/healthz", summary="Health Check", tags=["System"], description="API 健康檢查")
 def read_root():
@@ -204,3 +182,10 @@ def test_redis_connection():
 #     except Exception as e:
 #         raise HTTPException(
 #             status_code=404, detail="BigQuery table or dataset not found.")
+
+@router.post("/admin/reset-db")
+async def reset_db():
+    # 重新創建資料庫邏輯
+    # 例如刪除所有表並重新創建
+    await database.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+    return {"message": "Database reset successfully"}

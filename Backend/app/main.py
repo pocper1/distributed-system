@@ -12,6 +12,10 @@ from database import get_postgresql_connection
 from models import *
 from fastapi.middleware.cors import CORSMiddleware
 
+origins = os.getenv("ORIGINS", "")
+origins_list = origins.split(",") if origins else []
+print("Allowed Origins:", origins_list)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,  # Set log level to INFO
@@ -22,16 +26,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+
 # Initialize FastAPI application
 app = FastAPI(
     title="按讚活動",
     description="按讚拿獎金",
     version="1.0.0",
 )
-
-origins = [
-    "https://frontend-service-72785805306.asia-east1.run.app"
-]
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,4 +78,4 @@ app.include_router(event_router)
 # start_sync_thread()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    uvicorn.run(app, host='0.0.0.0', port=int(os.environ.get('BACKEND_PORT', 8080)))
