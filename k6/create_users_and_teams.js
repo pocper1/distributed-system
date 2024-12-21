@@ -38,15 +38,20 @@ function createUsers() {
             { headers: { "Content-Type": "application/json" } }
         );
 
-        check(res, {
-            "User created successfully": r => r.status === 200,
+        const success = check(res, {
+            "User creation status is 200": r => r.status === 200,
         });
 
-        let userId = res.json().user_id;
-        if (userId) {
-            userIds.push(userId);
+        // 如果狀態碼正確，檢查響應內容
+        if (success) {
+            const responseBody = res.json();
+            if (responseBody.message === "User registered successfully") {
+                console.log("User created successfully:", responseBody);
+            } else {
+                console.error("Unexpected response:", responseBody);
+            }
         } else {
-            console.error(`Failed to create user: ${res.body}`);
+            console.error("Request failed:", res.body);
         }
 
         sleep(0.1); // 模擬延遲
@@ -82,7 +87,6 @@ function createTeamsAndJoinUsers(eventId, userIds) {
 
             check(joinRes, {
                 "User joined team successfully": r => r.status === 200,
-                "User already a member": r => r.status === 400,
             });
 
             console.log(`User ${randomUserId} joined Team ${teamId}`);
@@ -97,6 +101,12 @@ function createTeamsAndJoinUsers(eventId, userIds) {
 
 // 初始化階段
 export function setup() {
+    const res = http.post("http://localhost/api/admin/reset-db");
+    check(res, {
+        "Database reset successfully": r => r.status === 200,
+    });
+    console.log("Database reset completed");
+
     // 創建活動
     let eventRes = http.post(
         `${BASE_URL}/event/create`,
